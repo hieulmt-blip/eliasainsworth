@@ -4,8 +4,9 @@ import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import httpx
+if os.path.exists(".env"):
+    load_dotenv(dotenv_path=".env", override=True)
 
-load_dotenv(dotenv_path=".env", override=True)
 exchange = ccxt.okx({
     "apiKey": os.getenv("OKX_API_KEY"),
     "secret": os.getenv("OKX_API_SECRET"),
@@ -15,7 +16,7 @@ exchange = ccxt.okx({
         "defaultType": "spot"  
     }
 })
-BOT_TOKEN = "8558241321:AAFVNuViRhrFm8Cbnb6FdRI0iXUTmbFT7_M"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Elias Ainsworth đã có mặt")
@@ -36,43 +37,7 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         await update.message.reply_text(f"Lỗi: {e}")
-async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("Dùng: /buy BTC 10 (mua 10 USDT)")
-        return
 
-    symbol = context.args[0].upper()
-    usdt = float(context.args[1])
-
-    pair = f"{symbol}/USDT"
-    price = exchange.fetch_ticker(pair)["last"]
-    amount = usdt / price
-
-    await update.message.reply_text(
-        f"🟢 GIẢ LẬP SPOT BUY\n"
-        f"Cặp: {pair}\n"
-        f"Giá hiện tại: {price}\n"
-        f"Số lượng sẽ mua: {amount:.6f}"
-    )
-async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("Dùng: /sell BTC 0.001")
-        return
-
-    symbol = context.args[0].upper()
-    amount = float(context.args[1])
-
-    pair = f"{symbol}/USDT"
-    price = exchange.fetch_ticker(pair)["last"]
-    usdt = amount * price
-
-    await update.message.reply_text(
-        f"🔴 GIẢ LẬP SPOT SELL\n"
-        f"Cặp: {pair}\n"
-        f"Giá hiện tại: {price}\n"
-        f"Số lượng bán: {amount}\n"
-        f"USDT nhận được: {usdt:.2f}"
-    )
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance()
@@ -86,6 +51,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi balance: {e}")
+        
 async def funding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance({"type": "funding"})

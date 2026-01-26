@@ -11,29 +11,7 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 
 load_dotenv()
 
-AUTHORIZED_CHATS = set()
-BOT_SECRET = os.getenv("BOT_SECRET")
-
 from telegram.ext import MessageHandler, filters
-
-async def auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text.startswith("/"):
-        return
-
-    cmd = update.message.text.split()[0]
-
-    WHITELIST = {"/start", "/auth"}
-    chat_id = update.effective_chat.id
-
-    # ❌ chưa auth + không nằm trong whitelist → CHẶN
-    if chat_id not in AUTHORIZED_CHATS and cmd not in WHITELIST:
-        await update.message.reply_text(
-            "🔒 Bot đang khóa\nDùng: /auth <secret>"
-        )
-        raise ApplicationHandlerStop  # ⛔ chặn TẤT CẢ handler phía sau
-
-    # ✅ cho phép /start, /auth hoặc đã auth
-    return
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
@@ -50,19 +28,6 @@ exchange = ccxt.okx({
     }
 })
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Dùng: /auth <secret>")
-        return
-
-    if context.args[0] != BOT_SECRET:
-        await update.message.reply_text("❌ Sai secret")
-        return
-
-    chat_id = update.effective_chat.id
-    AUTHORIZED_CHATS.add(chat_id)
-
-    await update.message.reply_text("✅ Đã mở khóa bot")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Elias Ainsworth đã có mặt")
@@ -244,11 +209,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
 
-tg_app.add_handler(
-    MessageHandler(filters.COMMAND, auth_gate),
-    group=0
-)
-tg_app.add_handler(CommandHandler("auth", auth))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("buy", buy))

@@ -81,13 +81,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             text="📭 Báo cáo chưa có khoản ghi có mới"
         )
-context.job_queue.run_repeating(
-    watch_credit,
-    interval=15,
-    first=15,
-    chat_id=chat_id,
-    name="watch_credit"
-)
 
 async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -265,28 +258,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
-async def watch_credit(context: ContextTypes.DEFAULT_TYPE):
-    last_balances = load_balances()
-    balance = exchange.fetch_balance({"type": "funding"})
-    total = balance["total"]
-
-    for coin, amount in total.items():
-        if amount is None:
-            continue
-
-        old = last_balances.get(coin, amount)
-
-        if amount > old:
-            diff = amount - old
-            await context.bot.send_message(
-                chat_id=context.job.chat_id,
-                text=f"🔔 GHI CÓ OKX (REALTIME)\n+{diff:.6f} {coin}"
-            )
-
-        last_balances[coin] = amount
-
-    save_balances(last_balances)
-
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

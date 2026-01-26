@@ -1,14 +1,16 @@
-from fastapi import FastAPI, Request
-import uvicorn
 import os
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+import uvicorn
+
 import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-fastapi_app = FastAPI()
-import httpx
-if os.path.exists(".env"):
-    load_dotenv(dotenv_path=".env", override=True)
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 exchange = ccxt.okx({
     "apiKey": os.getenv("OKX_API_KEY"),
@@ -134,27 +136,28 @@ def main():
     app.add_handler(CommandHandler("wallet", wallet))
     
     print("Bot running...")
+
+# ===== FASTAPI WEBHOOK =====
+
+fastapi_app = FastAPI()
+
+@fastapi_app.on_event("startup")
+async def startup():
+    await tg_app.initialize()
+    await tg_app.start()
+    await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    print("✅ Webhook set & bot ready")
+
+@fastapi_app.post("/webhook")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    update = Update.de_json(data, tg_app.bot)
+    await tg_app.process_update(update)
+    return {"ok": True}
+    
 if __name__ == "__main__":
-    main()
     uvicorn.run(
         fastapi_app,
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 10000)),
     )
-# ===== FASTAPI WEBHOOK =====
-fastapi_app = FastAPI()
-
-@fastapi_app.on_event("startup")
-async def on_startup():
-    await app.initialize()
-    await app.bot.set_webhook(
-        os.getenv("WEBHOOK_URL") + "/webhook"
-    )
-    print("Webhook set")
-
-@fastapi_app.post("/webhook")
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    update = Update.de_json(data, app.bot)
-    await app.process_update(update)
-    return {"ok": True}

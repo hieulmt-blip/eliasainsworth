@@ -306,6 +306,7 @@ tg_app.add_handler(CommandHandler("balance", balance))
 tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
+tg_app.add_handler(CommandHandler("transfer", transfer))
 
 # ===== FASTAPI WEBHOOK =====
 

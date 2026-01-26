@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 import uvicorn
-
+import qrcode
+import io
 import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -26,6 +27,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Elias Ainsworth đã có mặt")
+    
 async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Dùng: /price BTC/USDT hoặc /price BTC")
@@ -71,6 +73,7 @@ async def funding(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi funding: {e}")
+        
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "📦 YOUR WALLET\n"
 
@@ -82,6 +85,7 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg += f"{coin}: {amount}\n"
 
     await update.message.reply_text(msg)
+    
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text("Dùng: /buy BTC 10")
@@ -105,6 +109,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi buy: {e}")
+        
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text("Dùng: /sell BTC 0.001")
@@ -125,6 +130,81 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi sell: {e}")
 
+async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "Dùng: /deposit <coin> <chain>\n"
+            "VD: /deposit USDT TRC20"
+        )
+        return
+
+    coin = context.args[0].upper()
+    chain_input = context.args[1].upper()
+
+    try:
+        currencies = exchange.fetch_currencies()
+
+        if coin not in currencies:
+            await update.message.reply_text(f"❌ Coin {coin} không tồn tại")
+            return
+
+        networks = currencies[coin].get("networks")
+        if not networks:
+            await update.message.reply_text(f"❌ {coin} không hỗ trợ nạp onchain")
+            return
+
+        # tìm chain phù hợp (fuzzy match)
+        network_key = None
+        for k in networks.keys():
+            if chain_input in k.upper():
+                network_key = k
+                break
+
+        if not network_key:
+            chains = ", ".join(networks.keys())
+            await update.message.reply_text(
+                f"❌ Chain {chain_input} không hỗ trợ cho {coin}\n"
+                f"Chain hợp lệ:\n{chains}"
+            )
+            return
+
+        addr = exchange.fetch_deposit_address(
+            coin,
+            params={"network": network_key}
+        )
+
+        address = addr["address"]
+        tag = addr.get("tag")
+
+        # ===== TẠO QR =====
+        qr_data = address
+        if tag:
+            qr_data += f"?memo={tag}"
+
+        qr = qrcode.make(qr_data)
+        buf = io.BytesIO()
+        qr.save(buf, format="PNG")
+        buf.seek(0)
+
+        caption = (
+            f"📥 NẠP {coin} ({network_key})\n\n"
+            f"📍 Address:\n`{address}`\n"
+        )
+
+        if tag:
+            caption += f"🏷 Memo/Tag:\n`{tag}`\n"
+
+        caption += f"\n⚠️ CHỈ gửi {coin} qua {network_key}"
+
+        await update.message.reply_photo(
+            photo=buf,
+            caption=caption,
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi: {e}")
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -133,6 +213,7 @@ tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("balance", balance))
 tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
+tg_app.add_handler(CommandHandler("deposit", deposit))
 
 # ===== FASTAPI WEBHOOK =====
 

@@ -28,9 +28,67 @@ exchange = ccxt.okx({
 })
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+import json
+
+BAL_FILE = "balances.json"
+
+def load_balances():
+    if os.path.exists(BAL_FILE):
+        with open(BAL_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_balances(data):
+    with open(BAL_FILE, "w") as f:
+        json.dump(data, f)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    # ✅ GIỮ NGUYÊN CÂU CHÀO
     await update.message.reply_text("Elias Ainsworth đã có mặt")
-    
+
+    # ===== CHECK GHI CÓ =====
+    last_balances = load_balances()
+    balance = exchange.fetch_balance({"type": "funding"})
+    total = balance["total"]
+
+    messages = []
+
+    for coin, amount in total.items():
+        if amount is None:
+            continue
+
+        old = last_balances.get(coin, amount)
+
+        if amount > old:
+            diff = amount - old
+            messages.append(
+                f"🔔 GHI CÓ \n+{diff:.6f} {coin}"
+            )
+
+        last_balances[coin] = amount
+
+    save_balances(last_balances)
+
+    if messages:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="\n\n".join(messages)
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="📭 Báo cáo chưa có khoản ghi có mới"
+        )
+context.job_queue.run_repeating(
+    watch_credit,
+    interval=15,
+    first=15,
+    chat_id=chat_id,
+    name="watch_credit"
+)
+
 async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Dùng: /price BTC/USDT hoặc /price BTC")
@@ -207,6 +265,28 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
+async def watch_credit(context: ContextTypes.DEFAULT_TYPE):
+    last_balances = load_balances()
+    balance = exchange.fetch_balance({"type": "funding"})
+    total = balance["total"]
+
+    for coin, amount in total.items():
+        if amount is None:
+            continue
+
+        old = last_balances.get(coin, amount)
+
+        if amount > old:
+            diff = amount - old
+            await context.bot.send_message(
+                chat_id=context.job.chat_id,
+                text=f"🔔 GHI CÓ OKX (REALTIME)\n+{diff:.6f} {coin}"
+            )
+
+        last_balances[coin] = amount
+
+    save_balances(last_balances)
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

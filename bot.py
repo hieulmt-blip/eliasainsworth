@@ -144,6 +144,7 @@ async def startup():
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("✅ Webhook set & bot ready")
+    print("WEBHOOK =", f"{WEBHOOK_URL}/webhook")
 
 @fastapi_app.post("/webhook")
 async def telegram_webhook(req: Request):

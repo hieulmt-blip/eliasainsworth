@@ -7,6 +7,7 @@ import io
 import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 
 load_dotenv()
 
@@ -16,24 +17,23 @@ BOT_SECRET = os.getenv("BOT_SECRET")
 from telegram.ext import MessageHandler, filters
 
 async def auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # chỉ xử lý command
     if not update.message or not update.message.text.startswith("/"):
         return
 
     cmd = update.message.text.split()[0]
 
-    # các lệnh ĐƯỢC PHÉP khi chưa auth
     WHITELIST = {"/start", "/auth"}
-
     chat_id = update.effective_chat.id
 
+    # ❌ chưa auth + không nằm trong whitelist → CHẶN
     if chat_id not in AUTHORIZED_CHATS and cmd not in WHITELIST:
         await update.message.reply_text(
             "🔒 Bot đang khóa\nDùng: /auth <secret>"
         )
-        return True  # ⛔ CHẶN, không cho lệnh đi tiếp
+        raise ApplicationHandlerStop  # ⛔ chặn TẤT CẢ handler phía sau
 
-    return False  # ✅ cho đi tiếp
+    # ✅ cho phép /start, /auth hoặc đã auth
+    return
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 

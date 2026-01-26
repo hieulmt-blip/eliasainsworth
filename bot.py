@@ -1,3 +1,5 @@
+from fastapi import FastAPI, Request
+import uvicorn
 import os
 from dotenv import load_dotenv
 import ccxt
@@ -131,6 +133,27 @@ def main():
     app.add_handler(CommandHandler("wallet", wallet))
     
     print("Bot running...")
-    app.run_polling()
 if __name__ == "__main__":
     main()
+    uvicorn.run(
+        fastapi_app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+    )
+# ===== FASTAPI WEBHOOK =====
+fastapi_app = FastAPI()
+
+@fastapi_app.on_event("startup")
+async def on_startup():
+    await app.initialize()
+    await app.bot.set_webhook(
+        os.getenv("WEBHOOK_URL") + "/webhook"
+    )
+    print("Webhook set")
+
+@fastapi_app.post("/webhook")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    update = Update.de_json(data, app.bot)
+    await app.process_update(update)
+    return {"ok": True}

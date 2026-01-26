@@ -259,6 +259,45 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
 
+async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 4:
+        await update.message.reply_text(
+            "Dùng:\n/transfer <coin> <amount> <from> <to>\n"
+            "VD: /transfer USDT 100 trading funding"
+        )
+        return
+
+    coin = context.args[0].upper()
+    amount = float(context.args[1])
+    from_acc = context.args[2].lower()
+    to_acc = context.args[3].lower()
+
+    acc_map = {
+        "trading": "spot",
+        "funding": "funding"
+    }
+
+    if from_acc not in acc_map or to_acc not in acc_map:
+        await update.message.reply_text("❌ from/to chỉ dùng: trading | funding")
+        return
+
+    try:
+        exchange.transfer(
+            code=coin,
+            amount=amount,
+            fromAccount=acc_map[from_acc],
+            toAccount=acc_map[to_acc]
+        )
+
+        await update.message.reply_text(
+            f"✅ TRANSFER ASSETS\n"
+            f"{amount} {coin}\n"
+            f"{from_acc.upper()} → {to_acc.upper()}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
+
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("buy", buy))

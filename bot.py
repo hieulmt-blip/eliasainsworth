@@ -283,7 +283,21 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         res = exchange.private_post_asset_transfer({
+            "ccy": coin,
+            "amt": amount,
+            "from": acc_map[from_acc],
+            "to": acc_map[to_acc],
+            "type": "0"  # nội bộ OKX
+        })
 
+        await update.message.reply_text(
+            f"✅ TRANSFER OKX THÀNH CÔNG\n"
+            f"{amount} {coin}\n"
+            f"{from_acc.upper()} → {to_acc.upper()}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

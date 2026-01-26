@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 import uvicorn
 import qrcode
@@ -8,9 +7,6 @@ import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
-
-load_dotenv()
-
 from telegram.ext import MessageHandler, filters
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")

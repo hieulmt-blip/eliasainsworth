@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import ccxt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+fastapi_app = FastAPI()
 import httpx
 if os.path.exists(".env"):
     load_dotenv(dotenv_path=".env", override=True)

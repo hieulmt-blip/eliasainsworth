@@ -10,6 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 exchange = ccxt.okx({
@@ -124,18 +125,14 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi sell: {e}")
 
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("price", price))
-    app.add_handler(CommandHandler("buy", buy))
-    app.add_handler(CommandHandler("sell", sell))
-    app.add_handler(CommandHandler("balance", balance))
-    app.add_handler(CommandHandler("funding", funding))
-    app.add_handler(CommandHandler("wallet", wallet))
-    
-    print("Bot running...")
+tg_app.add_handler(CommandHandler("start", start))
+tg_app.add_handler(CommandHandler("price", price))
+tg_app.add_handler(CommandHandler("buy", buy))
+tg_app.add_handler(CommandHandler("sell", sell))
+tg_app.add_handler(CommandHandler("balance", balance))
+tg_app.add_handler(CommandHandler("funding", funding))
+tg_app.add_handler(CommandHandler("wallet", wallet))
 
 # ===== FASTAPI WEBHOOK =====
 

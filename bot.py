@@ -268,13 +268,13 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     coin = context.args[0].upper()
-    amount = float(context.args[1])
+    amount = str(context.args[1])  # OKX yêu cầu STRING
     from_acc = context.args[2].lower()
     to_acc = context.args[3].lower()
 
     acc_map = {
-        "trading": "spot",
-        "funding": "funding"
+        "trading": "18",  # spot
+        "funding": "6"
     }
 
     if from_acc not in acc_map or to_acc not in acc_map:
@@ -282,21 +282,8 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        exchange.transfer(
-            code=coin,
-            amount=amount,
-            fromAccount=acc_map[from_acc],
-            toAccount=acc_map[to_acc]
-        )
+        res = exchange.private_post_asset_transfer({
 
-        await update.message.reply_text(
-            f"✅ TRANSFER ASSETS\n"
-            f"{amount} {coin}\n"
-            f"{from_acc.upper()} → {to_acc.upper()}"
-        )
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

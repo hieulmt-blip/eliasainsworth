@@ -19,13 +19,16 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 exchange = ccxt.okx({
     "apiKey": os.getenv("OKX_API_KEY"),
-    "secret": os.getenv("OKX_API_SECRET"),
+    "secret": os.getenv("OKX_SECRET_KEY") or os.getenv("OKX_API_SECRET"),
     "password": os.getenv("OKX_PASSPHRASE"),
     "enableRateLimit": True,
     "options": {
-        "defaultType": "spot"  
+        "defaultType": "spot",
+        "loadAllMarkets": False   # 🔥 DÒNG CỨU MẠNG
     }
 })
+exchange.load_markets()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json

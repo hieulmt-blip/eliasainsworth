@@ -282,47 +282,22 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-    res = exchange.private_post_asset_transfer({
-        "ccy": coin,
-        "amt": amount,
-        "from": acc_map[from_acc],
-        "to": acc_map[to_acc],
-        "type": "0"
-    })
-
-    await update.message.reply_text(
-        f"✅ TRANSFER OKX THÀNH CÔNG\n"
-        f"{amount} {coin}\n"
-        f"{from_acc.upper()} → {to_acc.upper()}"
-    )
-
-except Exception as e:
-    await update.message.reply_text(f"❌ Lỗi transfer:\n{e}")
-
-async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        balance = exchange.fetch_balance({
-            "type": "spot"   # 👈 QUAN TRỌNG
-        })
-
-        msg = "📊 *Số dư ví Spot giao ngay*\n\n"
-
-        for coin, data in balance["total"].items():
-            if data and data > 0:
-                free = balance["free"].get(coin, 0)
-                used = balance["used"].get(coin, 0)
-                msg += f"• {coin}: {data}\n  ├ Free: {free}\n  └ Used: {used}\n"
-
-        if msg.strip() == "📊 *Số dư ví Spot (Trading)*":
-            msg += "\n(Trống)"
+        res = exchange.private_post_asset_transfer (
+            "ccy": coin,
+            "amt": amount,
+            "from": acc_map[from_acc],
+            "to": acc_map[to_acc],
+            "type": "0" 
+        )
 
         await update.message.reply_text(
-            msg,
-            parse_mode="Markdown"
+            f"✅ TRANSFER OKX THÀNH CÔNG\n"
+            f"{amount} {coin}\n"
+            f"{from_acc.upper()} → {to_acc.upper()}"
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi lấy ví spot:\n{e}")
+        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -333,7 +308,6 @@ tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
-tg_app.add_handler(CommandHandler("spot", spot))
 
 # ===== FASTAPI WEBHOOK =====
 

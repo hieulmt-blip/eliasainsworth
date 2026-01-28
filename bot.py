@@ -350,7 +350,31 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 size = p.get("pos", "0")
                 entry = p.get("avgPx", "0")
                 mark = p.get("markPx", "0")
-                upnl = p
+                upnl = p.get("upl", "0")
+                lev = p.get("lever", None)
+                liq = p.get("liqPx", None)
+
+                msg += (
+                    f"🔹 {symbol}\n"
+                    f"  • Side : {side}\n"
+                    f"  • Size : {size}\n"
+                    f"  • Entry: {entry}\n"
+                    f"  • Mark : {mark}\n"
+                    f"  • uPNL : {upnl}\n"
+                )
+
+                if lev:
+                    msg += f"  • Leverage: {lev}x\n"
+                if liq:
+                    msg += f"  • Liq : {liq}\n"
+
+                msg += "\n"
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

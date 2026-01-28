@@ -1,4 +1,3 @@
-
 import os
 from fastapi import FastAPI, Request
 import uvicorn
@@ -105,7 +104,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance()
 
-        msg = "💰 SPOT BALANCE\n"
+        msg = "💰 TRADING BALANCE\n"
         for coin, amount in balances["total"].items():
             if amount and amount > 0:
                 msg += f"{coin}: {amount}\n"

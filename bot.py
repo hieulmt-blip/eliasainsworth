@@ -96,10 +96,18 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pair = f"{pair}/USDT"
 
     try:
-        ticker = exchange.fetch_ticker(pair)
-        await update.message.reply_text(
-            f"📈 {pair}\nGiá: {ticker['last']}"
-        )
+        inst_id = pair.replace("/", "-")
+
+ticker = exchange.public_get_market_ticker({
+    "instId": inst_id
+})
+
+last = float(ticker["data"][0]["last"])
+
+await update.message.reply_text(
+    f"📈 {pair}\nGiá: {last}"
+)
+
     except Exception as e:
         await update.message.reply_text(f"Lỗi: {e}")
 

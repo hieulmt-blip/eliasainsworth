@@ -340,8 +340,49 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ USDT: 0.00")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        positions = exchange.fetch_positions()
 
+        open_positions = [
+            p for p in positions
+            if p.get("contracts", 0) and float(p.get("contracts", 0)) > 0
+        ]
 
+        if not open_positions:
+            await update.message.reply_text("📭 Không có vị thế future đang mở")
+            return
+
+        msg = "📊 VỊ THẾ FUTURE ĐANG MỞ\n\n"
+
+        for p in open_positions:
+            symbol = p.get("symbol")
+            side = p.get("side", "").upper()
+            contracts = p.get("contracts")
+            entry = p.get("entryPrice")
+            mark = p.get("markPrice")
+            pnl = p.get("unrealizedPnl")
+            roe = p.get("percentage")
+            leverage = p.get("leverage")
+            margin = p.get("initialMargin")
+
+            msg += (
+                f"🪙 {symbol}\n"
+                f"• Side: {side}\n"
+                f"• Size: {contracts}\n"
+                f"• Entry: {entry}\n"
+                f"• Mark: {mark}\n"
+                f"• PNL: {pnl:.4f} USDT\n"
+                f"• ROE: {roe:.2f}%\n"
+                f"• Leverage: {leverage}x\n"
+                f"• Margin: {margin:.4f} USDT\n"
+                f"----------------------\n"
+            )
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -353,6 +394,7 @@ tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
 tg_app.add_handler(CommandHandler("future", future))
+tg_app.add_handler(CommandHandler("positions", positions))
 
 # ===== FASTAPI WEBHOOK =====
 

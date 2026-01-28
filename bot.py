@@ -312,14 +312,13 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # ===== FUTURE BALANCE (USDT-M) =====
-        balance = exchange.fetch_balance({"type": "swap"})
-        usdt = balance["USDT"]
+        # ===== FUTURE BALANCE =====
+        bal = exchange.fetch_balance({"type": "swap"})
+        usdt = bal["USDT"]
 
         free = usdt.get("free", 0) or 0
         used = usdt.get("used", 0) or 0
         pnl  = usdt.get("unrealizedPnl", 0) or 0
-
         total = free + used + pnl
 
         msg = (
@@ -331,44 +330,27 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 TỔNG SỐ DƯ : {total:.4f}\n\n"
         )
 
-        # ===== OPEN POSITIONS =====
-        positions = exchange.fetch_positions(None, {"type": "swap"})
-        open_positions = [p for p in positions if p.get("contracts", 0) not in (0, None)]
+        # ===== RAW POSITIONS (OKX PRIVATE API) =====
+        res = exchange.private_get_account_positions({
+            "instType": "SWAP"
+        })
+
+        positions = res.get("data", [])
+
+        open_positions = [p for p in positions if float(p.get("pos", "0")) != 0]
 
         if not open_positions:
             msg += "📭 Không có vị thế đang mở"
         else:
             msg += "📌 VỊ THẾ ĐANG MỞ:\n\n"
+
             for p in open_positions:
-                symbol = p.get("symbol", "UNKNOWN")
-                side = p.get("side", "").upper()
-                size = p.get("contracts", 0)
-                entry = p.get("entryPrice", 0) or 0
-                mark = p.get("markPrice", 0) or 0
-                upnl = p.get("unrealizedPnl", 0) or 0
-                liq = p.get("liquidationPrice", None)
-                lev = p.get("leverage", None)
-
-                msg += (
-                    f"🔹 {symbol}\n"
-                    f"  • Side : {side}\n"
-                    f"  • Size : {size}\n"
-                    f"  • Entry: {entry}\n"
-                    f"  • Mark : {mark}\n"
-                    f"  • uPNL : {upnl:.4f}\n"
-                )
-
-                if lev:
-                    msg += f"  • Leverage: {lev}x\n"
-                if liq:
-                    msg += f"  • Liq : {liq}\n"
-
-                msg += "\n"
-
-        await update.message.reply_text(msg)
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+                symbol = p.get("instId", "UNKNOWN")
+                side = "LONG" if p.get("posSide") == "long" else "SHORT"
+                size = p.get("pos", "0")
+                entry = p.get("avgPx", "0")
+                mark = p.get("markPx", "0")
+                upnl = p
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

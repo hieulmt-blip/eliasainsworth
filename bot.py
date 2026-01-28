@@ -91,25 +91,25 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     pair = context.args[0].upper()
-
     if "/" not in pair:
         pair = f"{pair}/USDT"
 
     try:
         inst_id = pair.replace("/", "-")
 
-ticker = exchange.public_get_market_ticker({
-    "instId": inst_id
-})
+        ticker = exchange.public_get_market_ticker({
+            "instId": inst_id
+        })
 
-last = float(ticker["data"][0]["last"])
+        last = float(ticker["data"][0]["last"])
 
-await update.message.reply_text(
-    f"📈 {pair}\nGiá: {last}"
-)
+        await update.message.reply_text(
+            f"📈 {pair}\nGiá: {last}"
+        )
 
     except Exception as e:
-        await update.message.reply_text(f"Lỗi: {e}")
+        await update.message.reply_text(f"❌ Lỗi price: {e}")
+
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

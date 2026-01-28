@@ -100,11 +100,11 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Lỗi: {e}")
 
-async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance()
 
-        msg = "💰 Spot Balance\n"
+        msg = "💰 TRADING BALANCE\n"
         for coin, amount in balances["total"].items():
             if amount and amount > 0:
                 msg += f"{coin}: {amount}\n"
@@ -298,13 +298,13 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
-async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balance = exchange.fetch_balance({
             "type": "spot"   # 👈 CHỈ SPOT (TRADING)
         })
 
-        msg = "📊 SỐ DƯ VÍ Giao dịch\n\n"
+        msg = "📊 SỐ DƯ VÍ SPOT (TRADING)\n\n"
         has_balance = False
 
         for coin, total in balance["total"].items():

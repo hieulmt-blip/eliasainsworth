@@ -310,6 +310,65 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
+async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        # ===== FUTURE BALANCE (USDT-M) =====
+        balance = exchange.fetch_balance({"type": "swap"})
+        usdt = balance["USDT"]
+
+        free = usdt.get("free", 0) or 0
+        used = usdt.get("used", 0) or 0
+        pnl  = usdt.get("unrealizedPnl", 0) or 0
+
+        total = free + used + pnl
+
+        msg = (
+            "📊 FUTURE WALLET (USDT-M)\n\n"
+            f"💵 USDT khả dụng : {free:.4f}\n"
+            f"📦 USDT ký quỹ : {used:.4f}\n"
+            f"📈 PNL chưa chốt : {pnl:.4f}\n"
+            "──────────────\n"
+            f"💰 TỔNG SỐ DƯ : {total:.4f}\n\n"
+        )
+
+        # ===== OPEN POSITIONS =====
+        positions = exchange.fetch_positions(None, {"type": "swap"})
+        open_positions = [p for p in positions if p.get("contracts", 0) not in (0, None)]
+
+        if not open_positions:
+            msg += "📭 Không có vị thế đang mở"
+        else:
+            msg += "📌 VỊ THẾ ĐANG MỞ:\n\n"
+            for p in open_positions:
+                symbol = p.get("symbol", "UNKNOWN")
+                side = p.get("side", "").upper()
+                size = p.get("contracts", 0)
+                entry = p.get("entryPrice", 0) or 0
+                mark = p.get("markPrice", 0) or 0
+                upnl = p.get("unrealizedPnl", 0) or 0
+                liq = p.get("liquidationPrice", None)
+                lev = p.get("leverage", None)
+
+                msg += (
+                    f"🔹 {symbol}\n"
+                    f"  • Side : {side}\n"
+                    f"  • Size : {size}\n"
+                    f"  • Entry: {entry}\n"
+                    f"  • Mark : {mark}\n"
+                    f"  • uPNL : {upnl:.4f}\n"
+                )
+
+                if lev:
+                    msg += f"  • Leverage: {lev}x\n"
+                if liq:
+                    msg += f"  • Liq : {liq}\n"
+
+                msg += "\n"
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi future:\n{e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -320,6 +379,7 @@ tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
+tg_app.add_handler(CommandHandler("future", future))
 
 # ===== FASTAPI WEBHOOK =====
 

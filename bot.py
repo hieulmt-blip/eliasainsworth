@@ -337,7 +337,7 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg)
 
     except KeyError:
-        await update.message.reply_text("❌ Ví future chưa có USDT")
+        await update.message.reply_text("❌ USDT: 0.00")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
 

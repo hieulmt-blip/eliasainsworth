@@ -158,59 +158,43 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     symbol = context.args[0].upper()
-    usdt = str(context.args[1])  # OKX yêu cầu STRING
+    usdt = float(context.args[1])
     pair = f"{symbol}/USDT"
 
     try:
-        order = exchange.create_order(
-            symbol=pair,
-            type="market",
-            side="buy",
-            amount=None,
-            params={
-                "tdMode": "cash",
-                "quoteSz": usdt   # 👈 QUAN TRỌNG
-            }
-        )
+        price = exchange.fetch_ticker(pair)["last"]
+        amount = usdt / price
+
+        order = exchange.create_market_buy_order(pair, amount)
 
         await update.message.reply_text(
             f"✅ BUY MARKET\n"
             f"Cặp: {pair}\n"
-            f"Số tiền: {usdt} USDT"
+            f"Số tiền: {usdt} USDT\n"
+            f"Số lượng: {amount:.6f}"
         )
-
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi buy:\n{e}")
-
+        await update.message.reply_text(f"❌ Lỗi buy: {e}")
+        
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text("Dùng: /sell BTC 0.001")
         return
 
     symbol = context.args[0].upper()
-    amount = str(context.args[1])  # STRING
+    amount = float(context.args[1])
     pair = f"{symbol}/USDT"
 
     try:
-        order = exchange.create_order(
-            symbol=pair,
-            type="market",
-            side="sell",
-            amount=amount,
-            params={
-                "tdMode": "cash"
-            }
-        )
+        order = exchange.create_market_sell_order(pair, amount)
 
         await update.message.reply_text(
             f"✅ SELL MARKET\n"
             f"Cặp: {pair}\n"
             f"Số lượng: {amount}"
         )
-
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi sell:\n{e}")
-
+        await update.message.reply_text(f"❌ Lỗi sell: {e}")
 
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:

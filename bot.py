@@ -298,6 +298,30 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
+async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        balance = exchange.fetch_balance({
+            "type": "spot"   # 👈 QUAN TRỌNG
+        })
+
+        msg = "📊 *Số dư ví Spot giao ngay*\n\n"
+
+        for coin, data in balance["total"].items():
+            if data and data > 0:
+                free = balance["free"].get(coin, 0)
+                used = balance["used"].get(coin, 0)
+                msg += f"• {coin}: {data}\n  ├ Free: {free}\n  └ Used: {used}\n"
+
+        if msg.strip() == "📊 *Số dư ví Spot (Trading)*":
+            msg += "\n(Trống)"
+
+        await update.message.reply_text(
+            msg,
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi lấy ví spot:\n{e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -308,6 +332,7 @@ tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
+tg_app.add_handler(CommandHandler("spot", spot))
 
 # ===== FASTAPI WEBHOOK =====
 

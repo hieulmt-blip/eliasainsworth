@@ -23,11 +23,12 @@ exchange = ccxt.okx({
     "password": os.getenv("OKX_PASSPHRASE"),
     "enableRateLimit": True,
     "options": {
-        "defaultType": "spot",
-        "loadAllMarkets": False   # 🔥 RẤT QUAN TRỌNG
+        "defaultType": "spot"
     }
 })
 
+# 🚨 BẮT BUỘC – chặn load markets
+exchange.load_markets = lambda *args, **kwargs: {}
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 

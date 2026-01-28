@@ -310,10 +310,11 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
+        
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # ===== FUTURE BALANCE =====
-        bal = exchange.fetch_balance({"type": "swap"})
+        bal = exchange.fetch_balance({"type": "spot"})
         usdt = bal["USDT"]
 
         free = usdt.get("free", 0) or 0

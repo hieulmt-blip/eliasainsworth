@@ -271,33 +271,107 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
 
+async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 4:
+        await update.message.reply_text(
+            "Dùng:\n/transfer <coin> <amount> <from> <to>\n"
+            "VD: /transfer USDT 100 trading funding"
+        )
+        return
+
+    coin = context.args[0].upper()
+    amount = str(context.args[1])  # OKX yêu cầu STRING
+    from_acc = context.args[2].lower()
+    to_acc = context.args[3].lower()
+
+    acc_map = {
+        "trading": "18",  # spot
+        "funding": "6"
+    }
+
+    if from_acc not in acc_map or to_acc not in acc_map:
+        await update.message.reply_text("❌ from/to chỉ dùng: trading | funding")
+        return
+
+    try:
+        res = exchange.private_post_asset_transfer({
+            "ccy": coin,
+            "amt": amount,
+            "from": acc_map[from_acc],
+            "to": acc_map[to_acc],
+            "type": "0"  # nội bộ OKX
+        })
+
+        await update.message.reply_text(
+            f"✅ TRANSFER OKX THÀNH CÔNG\n"
+            f"{amount} {coin}\n"
+            f"{from_acc.upper()} → {to_acc.upper()}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Fetch FUTURES balance
+        # ===== FUTURE BALANCE =====
         bal = exchange.fetch_balance({"type": "swap"})
-
         usdt = bal["USDT"]
 
-        free = usdt.get("free", 0) or 0          # USDT khả dụng
-        used = usdt.get("used", 0) or 0          # USDT ký quỹ
-        total = usdt.get("total", 0) or 0        # Equity
-
-        # PNL = equity - (free + used)
-        pnl = total - (free + used)
+        free = usdt.get("free", 0) or 0
+        used = usdt.get("used", 0) or 0
+        pnl  = usdt.get("unrealizedPnl", 0) or 0
+        total = free + used + pnl
 
         msg = (
-            "📊 FUTURE ACCOUNT (USDT)\n\n"
-            f"💵 Khả dụng : {free:.4f} USDT\n"
-            f"🔒 Ký quỹ   : {used:.4f} USDT\n"
-            f"📈 PNL      : {pnl:+.4f} USDT\n"
+            "📊 FUTURE WALLET (USDT-M)\n\n"
+            f"💵 USDT khả dụng : {free:.4f}\n"
+            f"📦 USDT ký quỹ : {used:.4f}\n"
+            f"📈 PNL chưa chốt : {pnl:.4f}\n"
             "──────────────\n"
-            f"💰 Tổng     : {total:.4f} USDT"
+            f"💰 TỔNG SỐ DƯ : {total:.4f}\n\n"
         )
+
+        # ===== RAW POSITIONS (OKX PRIVATE API) =====
+        res = exchange.private_get_account_positions({
+            "instType": "SWAP"
+        })
+
+        positions = res.get("data", [])
+
+        open_positions = [p for p in positions if float(p.get("pos", "0")) != 0]
+
+        if not open_positions:
+            msg += "📭 Không có vị thế đang mở"
+        else:
+            msg += "📌 VỊ THẾ ĐANG MỞ:\n\n"
+
+            for p in open_positions:
+                symbol = p.get("instId", "UNKNOWN")
+                side = "LONG" if p.get("posSide") == "long" else "SHORT"
+                size = p.get("pos", "0")
+                entry = p.get("avgPx", "0")
+                mark = p.get("markPx", "0")
+                upnl = p.get("upl", "0")
+                lev = p.get("lever", None)
+                liq = p.get("liqPx", None)
+
+                msg += (
+                    f"🔹 {symbol}\n"
+                    f"  • Side : {side}\n"
+                    f"  • Size : {size}\n"
+                    f"  • Entry: {entry}\n"
+                    f"  • Mark : {mark}\n"
+                    f"  • uPNL : {upnl}\n"
+                )
+
+                if lev:
+                    msg += f"  • Leverage: {lev}x\n"
+                if liq:
+                    msg += f"  • Liq : {liq}\n"
+
+                msg += "\n"
 
         await update.message.reply_text(msg)
 
-    except KeyError:
-        await update.message.reply_text("❌ Ví future chưa có USDT")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
 

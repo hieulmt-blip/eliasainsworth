@@ -282,13 +282,13 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        res = exchange.private_post_asset_transfer({
+        res = exchange.private_post_asset_transfer (
             "ccy": coin,
             "amt": amount,
             "from": acc_map[from_acc],
             "to": acc_map[to_acc],
-            "type": "0"  # nội bộ OKX
-        })
+            "type": "0" 
+        )
 
         await update.message.reply_text(
             f"✅ TRANSFER OKX THÀNH CÔNG\n"
@@ -298,34 +298,6 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
-async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        balance = exchange.fetch_balance({
-            "type": "spot"   # 👈 CHỈ SPOT (TRADING)
-        })
-
-        msg = "📊 SỐ DƯ VÍ Giao dịch\n\n"
-        has_balance = False
-
-        for coin, total in balance["total"].items():
-            if total and total > 0:
-                free = balance["free"].get(coin, 0)
-                used = balance["used"].get(coin, 0)
-                msg += (
-                    f"• {coin}\n"
-                    f"  ├ Total: {total}\n"
-                    f"  ├ Free : {free}\n"
-                    f"  └ Used : {used}\n\n"
-                )
-                has_balance = True
-
-        if not has_balance:
-            msg += "(Ví spot trống)"
-
-        await update.message.reply_text(msg)
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi lấy số dư spot:\n{e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -336,7 +308,6 @@ tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))
 tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
-tg_app.add_handler(CommandHandler("spot", spot))
 
 # ===== FASTAPI WEBHOOK =====
 

@@ -282,13 +282,13 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        res = exchange.private_post_asset_transfer (
+        res = exchange.private_post_asset_transfer({
             "ccy": coin,
             "amt": amount,
             "from": acc_map[from_acc],
             "to": acc_map[to_acc],
-            "type": "0" 
-        )
+            "type": "0"  # nội bộ OKX
+        })
 
         await update.message.reply_text(
             f"✅ TRANSFER OKX THÀNH CÔNG\n"

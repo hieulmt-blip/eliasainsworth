@@ -282,22 +282,23 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        res = exchange.private_post_asset_transfer (
-            "ccy": {coin},
-            "amt": {amount},
-            "from": acc_map[from_acc],
-            "to": acc_map[to_acc],
-            "type": "0" 
-        )
+    res = exchange.private_post_asset_transfer({
+        "ccy": coin,
+        "amt": amount,
+        "from": acc_map[from_acc],
+        "to": acc_map[to_acc],
+        "type": "0"
+    })
 
-        await update.message.reply_text(
-            f"✅ TRANSFER OKX THÀNH CÔNG\n"
-            f"{amount} {coin}\n"
-            f"{from_acc.upper()} → {to_acc.upper()}"
-        )
+    await update.message.reply_text(
+        f"✅ TRANSFER OKX THÀNH CÔNG\n"
+        f"{amount} {coin}\n"
+        f"{from_acc.upper()} → {to_acc.upper()}"
+    )
 
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
+except Exception as e:
+    await update.message.reply_text(f"❌ Lỗi transfer:\n{e}")
+
 async def spot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balance = exchange.fetch_balance({

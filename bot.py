@@ -104,7 +104,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance()
 
-        msg = "💰 TRADING BALANCE\n"
+        msg = "💰 SPOT BALANCE\n"
         for coin, amount in balances["total"].items():
             if amount and amount > 0:
                 msg += f"{coin}: {amount}\n"

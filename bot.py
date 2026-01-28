@@ -114,7 +114,7 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        balances = exchange.fetch_balance()
+        balances = exchange.fetch_balance({"type": "spot"})
 
         msg = "💰 TRADING BALANCE\n"
         for coin, amount in balances["total"].items():

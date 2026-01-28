@@ -271,55 +271,15 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
 
-async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 4:
-        await update.message.reply_text(
-            "Dùng:\n/transfer <coin> <amount> <from> <to>\n"
-            "VD: /transfer USDT 100 trading funding"
-        )
-        return
-
-    coin = context.args[0].upper()
-    amount = str(context.args[1])  # OKX yêu cầu STRING
-    from_acc = context.args[2].lower()
-    to_acc = context.args[3].lower()
-
-    acc_map = {
-        "trading": "18",  # spot
-        "funding": "6"
-    }
-
-    if from_acc not in acc_map or to_acc not in acc_map:
-        await update.message.reply_text("❌ from/to chỉ dùng: trading | funding")
-        return
-
-    try:
-        res = exchange.private_post_asset_transfer({
-            "ccy": coin,
-            "amt": amount,
-            "from": acc_map[from_acc],
-            "to": acc_map[to_acc],
-            "type": "0"  # nội bộ OKX
-        })
-
-        await update.message.reply_text(
-            f"✅ TRANSFER OKX THÀNH CÔNG\n"
-            f"{amount} {coin}\n"
-            f"{from_acc.upper()} → {to_acc.upper()}"
-        )
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi transfer: {e}")
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # ===== FUTURE BALANCE =====
+        # ===== FUTURE BALANCE (USDT-M) =====
         bal = exchange.fetch_balance({"type": "swap"})
-        usdt = bal["USDT"]
 
-        free = usdt.get("free", 0) or 0
-        used = usdt.get("used", 0) or 0
-        pnl  = usdt.get("unrealizedPnl", 0) or 0
-        total = free + used + pnl
+        free = bal.get("free", {}).get("USDT", 0) or 0
+        used = bal.get("used", {}).get("USDT", 0) or 0
+        total = bal.get("total", {}).get("USDT", 0) or 0
+        pnl = total - free - used
 
         msg = (
             "📊 FUTURE WALLET (USDT-M)\n\n"
@@ -336,7 +296,6 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
 
         positions = res.get("data", [])
-
         open_positions = [p for p in positions if float(p.get("pos", "0")) != 0]
 
         if not open_positions:
@@ -374,7 +333,6 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
-
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

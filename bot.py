@@ -283,8 +283,8 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         res = exchange.private_post_asset_transfer (
-            "ccy": coin,
-            "amt": amount,
+            "ccy": {coin},
+            "amt": {amount},
             "from": acc_map[from_acc],
             "to": acc_map[to_acc],
             "type": "0" 

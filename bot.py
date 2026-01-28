@@ -350,7 +350,7 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
 
         if not open_positions:
-            await update.message.reply_text("📭 Không có vị thế future đang mở")
+            await update.message.reply_text("📊 Không có vị thế future đang mở")
             return
 
         msg = "📊 VỊ THẾ FUTURE ĐANG MỞ\n\n"

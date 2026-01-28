@@ -273,66 +273,34 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # ===== FUTURE BALANCE (USDT-M) =====
+        # Fetch FUTURES balance
         bal = exchange.fetch_balance({"type": "swap"})
 
-        free = bal.get("free", {}).get("USDT", 0) or 0
-        used = bal.get("used", {}).get("USDT", 0) or 0
-        total = bal.get("total", {}).get("USDT", 0) or 0
-        pnl = total - free - used
+        usdt = bal["USDT"]
+
+        free = usdt.get("free", 0) or 0          # USDT khả dụng
+        used = usdt.get("used", 0) or 0          # USDT ký quỹ
+        total = usdt.get("total", 0) or 0        # Equity
+
+        # PNL = equity - (free + used)
+        pnl = total - (free + used)
 
         msg = (
-            "📊 FUTURE WALLET (USDT-M)\n\n"
-            f"💵 USDT khả dụng : {free:.4f}\n"
-            f"📦 USDT ký quỹ : {used:.4f}\n"
-            f"📈 PNL chưa chốt : {pnl:.4f}\n"
+            "📊 FUTURE ACCOUNT (USDT)\n\n"
+            f"💵 Khả dụng : {free:.4f} USDT\n"
+            f"🔒 Ký quỹ   : {used:.4f} USDT\n"
+            f"📈 PNL      : {pnl:+.4f} USDT\n"
             "──────────────\n"
-            f"💰 TỔNG SỐ DƯ : {total:.4f}\n\n"
+            f"💰 Tổng     : {total:.4f} USDT"
         )
-
-        # ===== RAW POSITIONS (OKX PRIVATE API) =====
-        res = exchange.private_get_account_positions({
-            "instType": "SWAP"
-        })
-
-        positions = res.get("data", [])
-        open_positions = [p for p in positions if float(p.get("pos", "0")) != 0]
-
-        if not open_positions:
-            msg += "📭 Không có vị thế đang mở"
-        else:
-            msg += "📌 VỊ THẾ ĐANG MỞ:\n\n"
-
-            for p in open_positions:
-                symbol = p.get("instId", "UNKNOWN")
-                side = "LONG" if p.get("posSide") == "long" else "SHORT"
-                size = p.get("pos", "0")
-                entry = p.get("avgPx", "0")
-                mark = p.get("markPx", "0")
-                upnl = p.get("upl", "0")
-                lev = p.get("lever", None)
-                liq = p.get("liqPx", None)
-
-                msg += (
-                    f"🔹 {symbol}\n"
-                    f"  • Side : {side}\n"
-                    f"  • Size : {size}\n"
-                    f"  • Entry: {entry}\n"
-                    f"  • Mark : {mark}\n"
-                    f"  • uPNL : {upnl}\n"
-                )
-
-                if lev:
-                    msg += f"  • Leverage: {lev}x\n"
-                if liq:
-                    msg += f"  • Liq : {liq}\n"
-
-                msg += "\n"
 
         await update.message.reply_text(msg)
 
+    except KeyError:
+        await update.message.reply_text("❌ Ví future chưa có USDT")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

@@ -326,7 +326,8 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
- def get_fixed_margin(exchange):
+        
+def get_fixed_margin(exchange):
     positions = exchange.fetch_positions()
     total_margin = 0.0
 

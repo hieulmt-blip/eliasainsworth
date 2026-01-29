@@ -562,10 +562,10 @@ tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
 tg_app.add_handler(CommandHandler("future", future))
 tg_app.add_handler(CommandHandler("positions", positions))
-app.add_handler(CommandHandler("earn", earn_command))
-app.add_handler(CallbackQueryHandler(earn_coin_handler, pattern="^earn_coin"))
-app.add_handler(CallbackQueryHandler(earn_type_handler, pattern="^earn_type"))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, earn_amount_handler))
+tg_app.add_handler(CommandHandler("earn", earn_command))
+tg_app.add_handler(CallbackQueryHandler(earn_coin_handler, pattern="^earn_coin"))
+tg_app.add_handler(CallbackQueryHandler(earn_type_handler, pattern="^earn_type"))
+tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, earn_amount_handler))
 
 # ===== FASTAPI WEBHOOK =====
 

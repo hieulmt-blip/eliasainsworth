@@ -9,16 +9,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
-WITHDRAW_FILE = "withdrawals.json"
-def load_withdrawals():
-    if os.path.exists(WITHDRAW_FILE):
-        with open(WITHDRAW_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_withdrawals(data):
-    with open(WITHDRAW_FILE, "w") as f:
-        json.dump(data, f)
 
 load_dotenv()
 
@@ -421,118 +411,7 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
-async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 4:
-        await update.message.reply_text(
-            "/withdraw <coin> <chain> <amount> <address>\n"
-            "VD: /withdraw USDT TRC20 10 TQabc..."
-        )
-        return
-
-    chat_id = update.effective_chat.id
-
-    coin = context.args[0].upper()
-    chain_input = context.args[1].upper()
-    amount = str(context.args[2])
-    address = context.args[3]
-
-    try:
-        currencies = exchange.fetch_currencies()
-        networks = currencies[coin]["networks"]
-
-        network_key = None
-        for k in networks:
-            if chain_input in k.upper():
-                network_key = k
-                break
-
-        if not network_key:
-            await update.message.reply_text("❌ Chain không hợp lệ")
-            return
-
-        fee = float(networks[network_key].get("fee", 0))
-        amt_f = float(amount)
-        receive = amt_f - fee
-
-        # ===== GỬI LỆNH RÚT THẬT =====
-        res = exchange.withdraw(
-            code=coin,
-            amount=amount,
-            address=address,
-            params={"network": network_key}
-        )
-
-        wd_id = res.get("id")
-
-        # ===== LƯU TRẠNG THÁI =====
-        data = load_withdrawals()
-        data[wd_id] = {
-            "chat_id": chat_id,
-            "coin": coin,
-            "amount": amt_f,
-            "receive": receive,
-            "status": "sent"
-        }
-        save_withdrawals(data)
-
-        await update.message.reply_text(
-            "📤 ĐÃ GỬI LỆNH RÚT\n\n"
-            f"🪙 {coin}\n"
-            f"💸 Amount : {amt_f}\n"
-            f"⛽ Fee OKX: {fee}\n"
-            f"📥 Nhận  : {receive:.6f}\n\n"
-            f"🆔 ID: {wd_id}\n"
-            "⏳ Đang chờ OKX xử lý..."
-        )
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi rút:\n{e}")
-import asyncio
-
-async def check_withdraw_status():
-    while True:
-        try:
-            data = load_withdrawals()
-            if not data:
-                await asyncio.sleep(30)
-                continue
-
-            wds = exchange.fetch_withdrawals()
-
-            for wd in wds:
-                wd_id = wd.get("id")
-                status = wd.get("status")
-
-                if wd_id in data and data[wd_id]["status"] == "sent":
-                    if status == "ok" or status == "success":
-                        info = data[wd_id]
-                        await tg_app.bot.send_message(
-                            chat_id=info["chat_id"],
-                            text=(
-                                "✅ RÚT THÀNH CÔNG\n\n"
-                                f"🪙 {info['coin']}\n"
-                                f"📥 Nhận: {info['receive']}\n"
-                                f"🆔 ID: {wd_id}"
-                            )
-                        )
-                        data[wd_id]["status"] = "done"
-
-            save_withdrawals(data)
-
-        except Exception as e:
-            print("Withdraw check error:", e)
-
-        await asyncio.sleep(30)
-        @fastapi_app.on_event("startup")
-async def startup():
-    await tg_app.initialize()
-    await tg_app.start()
-    await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-
-    asyncio.create_task(check_withdraw_status())  # 👈 DÒNG NÀY
-
-    print("✅ Webhook set & bot ready")
-       
+        
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("buy", buy))

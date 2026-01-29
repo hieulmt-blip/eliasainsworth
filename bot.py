@@ -9,6 +9,20 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+from telegram.ext import (
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+
+EARN_SESSION = {}
 
 load_dotenv()
 
@@ -411,6 +425,131 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
+        
+def fetch_earn_coins():
+    res = exchange.private_get_finance_savings_lending_rate()
+    coins = sorted({item["ccy"] for item in res["data"]})
+    return coins
+async def earn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    coins = fetch_earn_coins()
+
+    buttons = []
+    for c in coins[:20]:  # giới hạn cho đỡ spam
+        buttons.append([
+            InlineKeyboardButton(
+                text=c,
+                callback_data=f"earn_coin:{c}"
+            )
+        ])
+
+    await update.message.reply_text(
+        "💰 Chọn coin để Earn:",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+def fetch_okx_earn(currency: str):
+    flexible = exchange.private_get_finance_savings_lending_rate({"ccy": currency})
+    fixed = exchange.private_get_finance_fixed_loan_lending_rate({"ccy": currency})
+    return flexible["data"], fixed["data"]
+async def earn_coin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    _, currency = query.data.split(":")
+    flexible, fixed = fetch_okx_earn(currency)
+
+    options = []
+    buttons = []
+    text = f"📊 Earn cho {currency}:\n\n"
+
+    for f in flexible:
+        apr = float(f["rate"]) * 100
+        options.append({
+            "type": "flexible",
+            "apr": apr,
+            "term": 0
+        })
+
+    for f in fixed:
+        apr = float(f["rate"]) * 100
+        options.append({
+            "type": "fixed",
+            "apr": apr,
+            "term": int(f.get("term", 0))
+        })
+
+    for i, o in enumerate(options):
+        if o["type"] == "flexible":
+            label = f"Flexible | APR {o['apr']:.2f}%"
+        else:
+            label = f"Fixed {o['term']}d | APR {o['apr']:.2f}%"
+
+        text += f"{i+1}️⃣ {label}\n"
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"Chọn {i+1}",
+                callback_data=f"earn_type:{i}"
+            )
+        ])
+
+    EARN_SESSION[query.from_user.id] = {
+        "currency": currency,
+        "options": options
+    }
+
+    await query.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+async def earn_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    _, idx = query.data.split(":")
+    idx = int(idx)
+
+    session = EARN_SESSION.get(query.from_user.id)
+    opt = session["options"][idx]
+    session["selected"] = opt
+
+    desc = (
+        "Flexible (rút bất kỳ lúc nào)"
+        if opt["type"] == "flexible"
+        else f"Fixed {opt['term']} ngày (không rút sớm)"
+    )
+
+    await query.message.reply_text(
+        f"✅ Đã chọn:\n"
+        f"• {desc}\n"
+        f"• APR: {opt['apr']:.2f}%\n\n"
+        f"👉 Nhập số lượng {session['currency']} muốn gửi:"
+    )
+async def earn_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    session = EARN_SESSION.get(user_id)
+
+    if not session or "selected" not in session:
+        return
+
+    try:
+        amount = float(update.message.text)
+    except ValueError:
+        await update.message.reply_text("❌ Nhập số hợp lệ")
+        return
+
+    opt = session["selected"]
+    session["amount"] = amount
+
+    days = opt["term"] if opt["type"] == "fixed" else 365
+    profit = amount * opt["apr"] / 100 * (days / 365)
+
+    await update.message.reply_text(
+        f"📌 XÁC NHẬN EARN\n"
+        f"• Coin: {session['currency']}\n"
+        f"• Số lượng: {amount}\n"
+        f"• APR: {opt['apr']:.2f}%\n"
+        f"• Lãi ước tính: {profit:.4f}\n\n"
+        f"⚠️ (Bước gửi Earn thật sẽ bật sau)"
+    )
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -423,6 +562,10 @@ tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
 tg_app.add_handler(CommandHandler("future", future))
 tg_app.add_handler(CommandHandler("positions", positions))
+app.add_handler(CommandHandler("earn", earn_command))
+app.add_handler(CallbackQueryHandler(earn_coin_handler, pattern="^earn_coin"))
+app.add_handler(CallbackQueryHandler(earn_type_handler, pattern="^earn_type"))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, earn_amount_handler))
 
 # ===== FASTAPI WEBHOOK =====
 

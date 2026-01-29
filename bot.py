@@ -50,7 +50,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     # ✅ GIỮ NGUYÊN CÂU CHÀO
-    await update.message.reply_text("Elias Ainsworth đã có mặt")
+    await update.message.reply_text("Elias Ainsworth đã có mặt 🫡")
 
     # ===== CHECK GHI CÓ =====
     last_balances = load_balances()
@@ -68,7 +68,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if amount > old:
             diff = amount - old
             messages.append(
-                f"🔔 GHI CÓ \n+{diff:.6f} {coin}"
+                f"🤑 GHI CÓ \n+{diff:.6f} {coin}"
             )
 
         last_balances[coin] = amount
@@ -83,7 +83,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await context.bot.send_message(
             chat_id=chat_id,
-            text="📭 Báo cáo chưa có khoản ghi có mới"
+            text="🫡 Báo cáo chưa có khoản ghi có mới"
         )
 
 async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -141,7 +141,7 @@ async def funding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi funding: {e}")
         
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "📦 YOUR WALLET\n"
+    msg = "💳 YOUR WALLET\n"
 
     for t in ["spot", "funding"]:
         balances = exchange.fetch_balance({"type": t})
@@ -174,7 +174,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            f"✅ BUY MARKET\n"
+            f"💸 BUY MARKET\n"
             f"Cặp: {pair}\n"
             f"Số tiền: {usdt} USDT"
         )
@@ -203,7 +203,7 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            f"✅ SELL MARKET\n"
+            f"🧾 SELL MARKET\n"
             f"Cặp: {pair}\n"
             f"Số lượng: {amount}"
         )
@@ -319,50 +319,60 @@ async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
 
         await update.message.reply_text(
-            f"✅ TRANSFER OKX THÀNH CÔNG\n"
+            f"♻️ TRANSFER OKX THÀNH CÔNG\n"
             f"{amount} {coin}\n"
             f"{from_acc.upper()} → {to_acc.upper()}"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi transfer: {e}")
-        
+ def get_fixed_margin(exchange):
+    positions = exchange.fetch_positions()
+    total_margin = 0.0
+
+    for p in positions:
+        contracts = p.get("contracts", 0)
+        if contracts and float(contracts) > 0:
+            total_margin += float(p.get("initialMargin", 0) or 0)
+
+    return total_margin
+       
 async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Fetch FUTURES balance
+        # 1️⃣ Equity & free từ account
         bal = exchange.fetch_balance({"type": "swap"})
-
         usdt = bal["USDT"]
 
-        free = usdt.get("free", 0) or 0          # USDT khả dụng
-        used = usdt.get("used", 0) or 0          # USDT ký quỹ
-        total = usdt.get("total", 0) or 0        # Equity
+        free = usdt.get("free", 0) or 0
+        equity = usdt.get("total", 0) or 0
 
-        # PNL = equity - (free + used)
-        pnl = total - (free + used)
+        # 2️⃣ Margin cố định (initial margin)
+        margin = get_fixed_margin(exchange)
+
+        # 3️⃣ PNL thật
+        pnl = equity - (free + margin)
 
         msg = (
             "📊 FUTURE ACCOUNT (USDT)\n\n"
             f"💵 Khả dụng : {free:.4f} USDT\n"
-            f"🔒 Ký quỹ   : {used:.4f} USDT\n"
+            f"🔒 Margin   : {margin:.4f} USDT\n"
             f"📈 PNL      : {pnl:+.4f} USDT\n"
             "──────────────\n"
-            f"💰 Tổng     : {total:.4f} USDT"
+            f"💰 Equity   : {equity:.4f} USDT"
         )
 
         await update.message.reply_text(msg)
 
-    except KeyError:
-        await update.message.reply_text("❌ USDT: 0.00")
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+
 async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         positions = exchange.fetch_positions()
 
         open_positions = [
             p for p in positions
-            if p.get("contracts", 0) and float(p.get("contracts", 0)) > 0
+            if p.get("contracts") and float(p["contracts"]) > 0
         ]
 
         if not open_positions:
@@ -377,10 +387,11 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contracts = p.get("contracts")
             entry = p.get("entryPrice")
             mark = p.get("markPrice")
-            pnl = p.get("unrealizedPnl")
-            roe = p.get("percentage")
+
+            pnl = p.get("unrealizedPnl", 0) or 0
+            roe = p.get("percentage", 0) or 0
             leverage = p.get("leverage")
-            margin = p.get("initialMargin")
+            margin = p.get("initialMargin", 0) or 0   # 👈 CÁI M CẦN
 
             msg += (
                 f"🪙 {symbol}\n"
@@ -388,10 +399,10 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• Size: {contracts}\n"
                 f"• Entry: {entry}\n"
                 f"• Mark: {mark}\n"
-                f"• PNL: {pnl:.4f} USDT\n"
+                f"• Margin: {margin:.4f} USDT\n"
+                f"• PNL: {pnl:+.4f} USDT\n"
                 f"• ROE: {roe:.2f}%\n"
                 f"• Leverage: {leverage}x\n"
-                f"• Margin: {margin:.4f} USDT\n"
                 f"----------------------\n"
             )
 

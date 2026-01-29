@@ -523,7 +523,7 @@ async def check_withdraw_status():
             print("Withdraw check error:", e)
 
         await asyncio.sleep(30)
- @fastapi_app.on_event("startup")
+        @fastapi_app.on_event("startup")
 async def startup():
     await tg_app.initialize()
     await tg_app.start()

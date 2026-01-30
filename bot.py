@@ -109,7 +109,6 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi price: {e}")
 
-
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         balances = exchange.fetch_balance({"type": "spot"})

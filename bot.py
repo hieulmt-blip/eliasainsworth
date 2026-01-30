@@ -24,8 +24,8 @@ exchange = ccxt.okx({
     "enableRateLimit": True,
     "options": {
         "defaultType": "spot"
-    }
-})
+                }
+                    })
 
 # 🚨 BẮT BUỘC – chặn load markets
 exchange.load_markets = lambda *args, **kwargs: {}

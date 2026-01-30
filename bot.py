@@ -22,7 +22,8 @@ exchange = ccxt.okx({
     "secret": os.getenv("OKX_API_SECRET"),
     "password": os.getenv("OKX_PASSPHRASE"),
     "enableRateLimit": True,
-    "options": {"defaultType": "spot"}})
+    "options": {"defaultType": "spot"}
+})
 
 # 🚨 BẮT BUỘC – chặn load markets
 exchange.load_markets = lambda *args, **kwargs: {}

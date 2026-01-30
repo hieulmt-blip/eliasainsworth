@@ -362,7 +362,7 @@ async def future(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg)
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi future:\n{e}")
+        await update.message.reply_text(f"❌ {e} = 0")
 
 async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

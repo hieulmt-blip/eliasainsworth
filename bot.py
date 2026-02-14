@@ -223,24 +223,20 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         currencies = exchange.fetch_currencies()
 
-        # ===== FIX 1: chống None =====
         if not currencies or coin not in currencies:
             await update.message.reply_text(f"❌ Coin {coin} không tồn tại")
             return
 
         currency_info = currencies.get(coin)
-
         if not currency_info:
             await update.message.reply_text(f"❌ Không lấy được thông tin {coin}")
             return
 
         networks = currency_info.get("networks")
-
         if not networks or not isinstance(networks, dict):
             await update.message.reply_text(f"❌ {coin} không hỗ trợ nạp onchain")
             return
 
-        # ===== tìm chain =====
         network_key = None
         for k in networks.keys():
             if chain_input in k.upper():
@@ -255,7 +251,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-               # ===== lấy địa chỉ =====
         addr = exchange.fetch_deposit_address(
             coin,
             params={"network": network_key}
@@ -263,8 +258,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not addr or not isinstance(addr, dict):
             await update.message.reply_text(
-                f"❌ Không lấy được địa chỉ nạp {coin} trên {network_key}\n"
-                f"Có thể chain chưa bật nạp."
+                f"❌ Không lấy được địa chỉ nạp {coin} trên {network_key}"
             )
             return
 
@@ -277,7 +271,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ===== GIỮ NGUYÊN QR CỦA MÀY =====
         qr_data = address
         if tag:
             qr_data += f"?memo={tag}"
@@ -305,7 +298,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi: {e}")
-
 
 async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 4:

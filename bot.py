@@ -218,28 +218,45 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     coin = context.args[0].upper()
-    network = context.args[1].upper()
+    chain_input = context.args[1].upper()
 
     try:
         exchange.load_markets()
 
-        addr = exchange.fetch_deposit_address(
-            coin,
-            params={"network": network}
-        )
+        # Lấy toàn bộ deposit info
+        deposit_info = exchange.fetch_deposit_address(coin)
 
-        if not addr:
+        if not deposit_info:
+            await update.message.reply_text(f"❌ Không lấy được thông tin nạp {coin}")
+            return
+
+        networks = deposit_info.get("networks")
+
+        if not networks:
+            await update.message.reply_text(f"❌ {coin} không có thông tin network")
+            return
+
+        # Tìm chain phù hợp
+        selected = None
+        for net_name, net_data in networks.items():
+            if chain_input in net_name.upper():
+                selected = net_data
+                break
+
+        if not selected:
+            chains = ", ".join(networks.keys())
             await update.message.reply_text(
-                f"❌ Không lấy được địa chỉ nạp {coin} ({network})"
+                f"❌ Chain {chain_input} không hợp lệ.\n"
+                f"Chain hợp lệ:\n{chains}"
             )
             return
 
-        address = addr.get("address")
-        tag = addr.get("tag") or addr.get("memo")
+        address = selected.get("address")
+        tag = selected.get("tag") or selected.get("memo")
 
         if not address:
             await update.message.reply_text(
-                f"❌ OKX không trả address cho {coin} ({network})"
+                f"❌ OKX không trả address cho {coin} ({chain_input})"
             )
             return
 
@@ -254,14 +271,14 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buf.seek(0)
 
         caption = (
-            f"📥 NẠP {coin} ({network})\n\n"
+            f"📥 NẠP {coin} ({chain_input})\n\n"
             f"📍 Address:\n`{address}`\n"
         )
 
         if tag:
             caption += f"\n🏷 Memo/Tag:\n`{tag}`\n"
 
-        caption += f"\n⚠️ CHỈ gửi {coin} qua {network}"
+        caption += f"\n⚠️ CHỈ gửi {coin} qua {chain_input}"
 
         await update.message.reply_photo(
             photo=buf,

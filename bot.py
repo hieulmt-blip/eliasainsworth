@@ -10,6 +10,15 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 
+def safe_float(x):
+    try:
+        return float(x)
+    except:
+        return 0.0
+
+def safe_str(x):
+    return str(x) if x is not None else "0"
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")

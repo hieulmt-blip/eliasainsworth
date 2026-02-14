@@ -10,14 +10,7 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 
-def safe_float(x):
-    try:
-        return float(x)
-    except:
-        return 0.0
-
-def safe_str(x):
-    return str(x) if x is not None else "0"
+exchange.load_markets = lambda *args, **kwargs: {}
 
 load_dotenv()
 
@@ -226,52 +219,32 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     coin = context.args[0].upper()
-    chain_input = context.args[1].upper()
+    network = context.args[1].upper()
 
     try:
-        exchange.load_markets()
+        addr = exchange.fetch_deposit_address(
+            coin,
+            params={"network": network}
+        )
 
-        # Lấy toàn bộ deposit info
-        deposit_info = exchange.fetch_deposit_address(coin)
-
-        if not deposit_info:
-            await update.message.reply_text(f"❌ Không lấy được thông tin nạp {coin}")
-            return
-
-        networks = deposit_info.get("networks")
-
-        if not networks:
-            await update.message.reply_text(f"❌ {coin} không có thông tin network")
-            return
-
-        # Tìm chain phù hợp
-        selected = None
-        for net_name, net_data in networks.items():
-            if chain_input in net_name.upper():
-                selected = net_data
-                break
-
-        if not selected:
-            chains = ", ".join(networks.keys())
+        if not addr:
             await update.message.reply_text(
-                f"❌ Chain {chain_input} không hợp lệ.\n"
-                f"Chain hợp lệ:\n{chains}"
+                f"❌ Không lấy được địa chỉ {coin} ({network})"
             )
             return
 
-        address = selected.get("address")
-        tag = selected.get("tag") or selected.get("memo")
+        address = addr.get("address") or ""
+        tag = addr.get("tag") or addr.get("memo") or ""
 
         if not address:
             await update.message.reply_text(
-                f"❌ OKX không trả address cho {coin} ({chain_input})"
+                f"❌ OKX chưa cấp địa chỉ cho {coin} ({network})"
             )
             return
 
-        # ===== QR =====
         qr_data = address
         if tag:
-            qr_data += f"?memo={tag}"
+            qr_data = f"{address}?memo={tag}"
 
         qr = qrcode.make(qr_data)
         buf = io.BytesIO()
@@ -279,14 +252,14 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buf.seek(0)
 
         caption = (
-            f"📥 NẠP {coin} ({chain_input})\n\n"
+            f"📥 NẠP {coin} ({network})\n\n"
             f"📍 Address:\n`{address}`\n"
         )
 
         if tag:
             caption += f"\n🏷 Memo/Tag:\n`{tag}`\n"
 
-        caption += f"\n⚠️ CHỈ gửi {coin} qua {chain_input}"
+        caption += f"\n⚠️ CHỈ gửi {coin} qua {network}"
 
         await update.message.reply_photo(
             photo=buf,
@@ -296,6 +269,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi deposit:\n{e}")
+
 
 async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 4:

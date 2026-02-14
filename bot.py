@@ -10,8 +10,6 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 
-exchange.load_markets = lambda *args, **kwargs: {}
-
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -28,7 +26,7 @@ exchange = ccxt.okx({
 })
 
 # 🚨 BẮT BUỘC – chặn load markets
-
+exchange.load_markets = lambda *args, **kwargs: {}
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json

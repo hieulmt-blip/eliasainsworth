@@ -255,28 +255,27 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ===== lấy địa chỉ =====
-       addr = exchange.fetch_deposit_address(
-    coin,
-    params={"network": network_key}
-)
+               # ===== lấy địa chỉ =====
+        addr = exchange.fetch_deposit_address(
+            coin,
+            params={"network": network_key}
+        )
 
-if not addr or not isinstance(addr, dict):
-    await update.message.reply_text(
-        f"❌ Không lấy được địa chỉ nạp {coin} trên {network_key}\n"
-        f"Có thể chain chưa bật nạp."
-    )
-    return
+        if not addr or not isinstance(addr, dict):
+            await update.message.reply_text(
+                f"❌ Không lấy được địa chỉ nạp {coin} trên {network_key}\n"
+                f"Có thể chain chưa bật nạp."
+            )
+            return
 
-address = addr.get("address")
-tag = addr.get("tag")
+        address = addr.get("address")
+        tag = addr.get("tag")
 
-if not address:
-    await update.message.reply_text(
-        f"❌ OKX không trả address cho {coin} ({network_key})"
-    )
-    return
-
+        if not address:
+            await update.message.reply_text(
+                f"❌ OKX không trả address cho {coin} ({network_key})"
+            )
+            return
 
         # ===== GIỮ NGUYÊN QR CỦA MÀY =====
         qr_data = address

@@ -221,6 +221,9 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chain_input = context.args[1].upper()
 
     try:
+        # Đảm bảo markets đã load
+        exchange.load_markets()
+
         currencies = exchange.fetch_currencies()
 
         if not currencies or coin not in currencies:
@@ -228,20 +231,27 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         currency_info = currencies.get(coin)
-        if not currency_info:
-            await update.message.reply_text(f"❌ Không lấy được thông tin {coin}")
-            return
+        networks = currency_info.get("networks") if currency_info else None
 
-        networks = currency_info.get("networks")
         if not networks or not isinstance(networks, dict):
-            await update.message.reply_text(f"❌ {coin} không hỗ trợ nạp onchain")
+            await update.message.reply_text(
+                f"❌ {coin} không hỗ trợ nạp onchain"
+            )
             return
 
+        # Match chain chính xác trước
         network_key = None
         for k in networks.keys():
-            if chain_input in k.upper():
+            if chain_input == k.upper():
                 network_key = k
                 break
+
+        # Nếu không match chính xác thì fuzzy
+        if not network_key:
+            for k in networks.keys():
+                if chain_input in k.upper():
+                    network_key = k
+                    break
 
         if not network_key:
             chains = ", ".join(networks.keys())
@@ -251,6 +261,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # Lấy địa chỉ
         addr = exchange.fetch_deposit_address(
             coin,
             params={"network": network_key}
@@ -258,12 +269,12 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not addr or not isinstance(addr, dict):
             await update.message.reply_text(
-                f"❌ Không lấy được địa chỉ nạp {coin} trên {network_key}"
+                f"❌ Không lấy được địa chỉ nạp {coin} ({network_key})"
             )
             return
 
         address = addr.get("address")
-        tag = addr.get("tag")
+        tag = addr.get("tag") or addr.get("memo")
 
         if not address:
             await update.message.reply_text(
@@ -271,6 +282,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # ===== TẠO QR =====
         qr_data = address
         if tag:
             qr_data += f"?memo={tag}"
@@ -286,7 +298,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         if tag:
-            caption += f"🏷 Memo/Tag:\n`{tag}`\n"
+            caption += f"\n🏷 Memo/Tag:\n`{tag}`\n"
 
         caption += f"\n⚠️ CHỈ gửi {coin} qua {network_key}"
 
@@ -297,7 +309,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi: {e}")
+        await update.message.reply_text(f"❌ Lỗi deposit:\n{e}")
 
 async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 4:

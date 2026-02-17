@@ -185,11 +185,7 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text(
-            "Dùng:\n"
-            "/deposit <coin> <network>\n"
-            "VD:\n"
-            "/deposit USDT TRC20\n"
-            "/deposit BTC BTC"
+            "Dùng:\n/deposit <coin> <network>\nVD:\n/deposit BTC BTC"
         )
         return
 
@@ -197,22 +193,34 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     network = context.args[1].upper()
 
     try:
-        # OKX dùng network name như TRC20, ERC20, BTC...
-        addr = exchange.fetch_deposit_address(
-            code=coin,
-            params={"network": network}
-        )
+        # 🔥 Gọi trực tiếp OKX v5
+        res = exchange.private_get_asset_deposit_address({
+            "ccy": coin
+        })
 
-        address = addr.get("address")
-        tag = addr.get("tag") or addr.get("memo")
+        data = res.get("data", [])
+
+        if not data:
+            await update.message.reply_text("❌ Không có địa chỉ nạp")
+            return
+
+        # Lọc đúng network
+        address = None
+        tag = ""
+
+        for item in data:
+            if item.get("chain", "").upper().startswith(network):
+                address = item.get("addr")
+                tag = item.get("tag") or ""
+                break
 
         if not address:
             await update.message.reply_text(
-                f"❌ Không lấy được địa chỉ {coin} ({network})"
+                f"❌ Không tìm thấy network {network}"
             )
             return
 
-        # ===== TẠO QR =====
+        # ===== QR =====
         qr_content = address
         if tag:
             qr_content = f"{address}?memo={tag}"
@@ -240,6 +248,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi deposit:\n{e}")
+
 
 async def transfer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 4:

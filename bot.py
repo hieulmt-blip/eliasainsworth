@@ -182,12 +182,14 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi wallet: {e}")
 
-    
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text(
-            "Dùng: /deposit <coin> <chain>\n"
-            "VD: /deposit USDT TRC20"
+            "Dùng:\n"
+            "/deposit <coin> <network>\n"
+            "VD:\n"
+            "/deposit USDT TRC20\n"
+            "/deposit BTC BTC"
         )
         return
 
@@ -195,31 +197,27 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     network = context.args[1].upper()
 
     try:
+        # OKX dùng network name như TRC20, ERC20, BTC...
         addr = exchange.fetch_deposit_address(
-            coin,
+            code=coin,
             params={"network": network}
         )
 
-        if not addr:
+        address = addr.get("address")
+        tag = addr.get("tag") or addr.get("memo")
+
+        if not address:
             await update.message.reply_text(
                 f"❌ Không lấy được địa chỉ {coin} ({network})"
             )
             return
 
-        address = addr.get("address") or ""
-        tag = addr.get("tag") or addr.get("memo") or ""
-
-        if not address:
-            await update.message.reply_text(
-                f"❌ OKX chưa cấp địa chỉ cho {coin} ({network})"
-            )
-            return
-
-        qr_data = address
+        # ===== TẠO QR =====
+        qr_content = address
         if tag:
-            qr_data = f"{address}?memo={tag}"
+            qr_content = f"{address}?memo={tag}"
 
-        qr = qrcode.make(qr_data)
+        qr = qrcode.make(qr_content)
         buf = io.BytesIO()
         qr.save(buf, format="PNG")
         buf.seek(0)
@@ -232,7 +230,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if tag:
             caption += f"\n🏷 Memo/Tag:\n`{tag}`\n"
 
-        caption += f"\n⚠️ CHỈ gửi {coin} qua {network}"
+        caption += f"\n⚠️ Chỉ gửi {coin} qua mạng {network}"
 
         await update.message.reply_photo(
             photo=buf,

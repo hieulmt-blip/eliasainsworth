@@ -20,7 +20,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 exchange = ccxt.okx({
     "apiKey": os.getenv("OKX_API_KEY"),
     "secret": os.getenv("OKX_SECRET"),
-    "password": os.getenv("OKX_PASSPHRASE"),
+    "password": os.getenv("OKX_PASSWORD"),
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}
 })
@@ -334,33 +334,33 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
 async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        exchange = ccxt.okx({
-            "apiKey": os.getenv("OKX_API_KEY"),
-            "secret": os.getenv("OKX_SECRET"),
-            "password": os.getenv("OKX_PASSWORD"),
-            "enableRateLimit": True,
-        })
+        # Flexible savings
+        res = exchange.private_get_finance_savings_balance()
 
-        # Lấy tài sản Earn (Savings / Staking)
-        earn_balance = exchange.private_get_asset_balances({
-            "type": "earn"
-        })
+        data = res.get("data", [])
 
-        if not earn_balance["data"]:
-            await update.message.reply_text("📦 Không có tài sản staking.")
+        if not data:
+            await update.message.reply_text("📦 Không có tài sản Earn.")
             return
 
-        msg = "💎 STAKING / EARN BALANCE\n\n"
+        msg = "💎 OKX EARN BALANCE\n\n"
 
-        for coin in earn_balance["data"]:
-            ccy = coin["ccy"]
-            bal = coin["bal"]
-            msg += f"{ccy}: {bal}\n"
+        for item in data:
+            ccy = item.get("ccy")
+            amt = float(item.get("amt", 0))
+            earnings = float(item.get("earnings", 0))
+
+            if amt > 0:
+                msg += (
+                    f"{ccy}\n"
+                    f"• Gốc: {amt}\n"
+                    f"• Lãi: {earnings}\n\n"
+                )
 
         await update.message.reply_text(msg)
 
     except Exception as e:
-        await update.message.reply_text(f"Lỗi staking: {str(e)}")
+        await update.message.reply_text(f"❌ Lỗi staking: {e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

@@ -24,9 +24,9 @@ exchange = ccxt.okx({
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}
 })
-exchange.load_markets()
-exchange.load_markets = lambda *args, **kwargs: {}
 
+# 🚨 BẮT BUỘC – chặn load markets
+exchange.load_markets = lambda *args, **kwargs: {}
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json

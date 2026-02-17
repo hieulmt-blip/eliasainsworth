@@ -364,8 +364,6 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
-tg_app.add_handler(CommandHandler("buy", buy))
-tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("balance", balance))
 tg_app.add_handler(CommandHandler("funding", funding))
 tg_app.add_handler(CommandHandler("wallet", wallet))

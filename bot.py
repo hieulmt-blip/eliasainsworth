@@ -19,7 +19,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 exchange = ccxt.okx({
     "apiKey": os.getenv("OKX_API_KEY"),
-    "secret": os.getenv("OKX_API_SECRET"),
+    "secret": os.getenv("OKX_SECRET"),
     "password": os.getenv("OKX_PASSPHRASE"),
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}

@@ -24,6 +24,8 @@ exchange = ccxt.okx({
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}
 })
+exchange.load_markets()
+exchange.load_markets = lambda *args, **kwargs: exchange.markets
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 

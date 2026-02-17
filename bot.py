@@ -343,7 +343,7 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📦 Không có tài sản Earn.")
             return
 
-        msg = "💎 OKX EARN BALANCE\n\n"
+        msg = "🏦 OKX EARN BALANCE\n\n"
 
         for item in data:
             ccy = item.get("ccy")
@@ -353,8 +353,8 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if amt > 0:
                 msg += (
                     f"{ccy}\n"
-                    f"• Gốc: {amt}\n"
-                    f"• Lãi: {earnings}\n\n"
+                    f"•💰 Gốc: {amt}\n"
+                    f"• 💹Lãi: {earnings}\n\n"
                 )
 
         await update.message.reply_text(msg)

@@ -392,7 +392,36 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
-        
+async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        exchange = ccxt.okx({
+            "apiKey": os.getenv("OKX_API_KEY"),
+            "secret": os.getenv("OKX_SECRET"),
+            "password": os.getenv("OKX_PASSWORD"),
+            "enableRateLimit": True,
+        })
+
+        # Lấy tài sản Earn (Savings / Staking)
+        earn_balance = exchange.private_get_asset_balances({
+            "type": "earn"
+        })
+
+        if not earn_balance["data"]:
+            await update.message.reply_text("📦 Không có tài sản staking.")
+            return
+
+        msg = "💎 STAKING / EARN BALANCE\n\n"
+
+        for coin in earn_balance["data"]:
+            ccy = coin["ccy"]
+            bal = coin["bal"]
+            msg += f"{ccy}: {bal}\n"
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"Lỗi staking: {str(e)}")
+
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("buy", buy))
@@ -404,6 +433,7 @@ tg_app.add_handler(CommandHandler("deposit", deposit))
 tg_app.add_handler(CommandHandler("transfer", transfer))
 tg_app.add_handler(CommandHandler("future", future))
 tg_app.add_handler(CommandHandler("positions", positions))
+tg_app.add_handler(CommandHandler("staking", staking))
 
 # ===== FASTAPI WEBHOOK =====
 

@@ -137,16 +137,51 @@ async def funding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi funding: {e}")
         
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "💳 YOUR WALLET\n"
+    try:
+        msg = "💳 YOUR WALLET\n"
 
-    for t in ["spot", "funding"]:
-        balances = exchange.fetch_balance({"type": t})
-        msg += f"\n[{t.upper()}]\n"
-        for coin, amount in balances["total"].items():
-            if amount and amount > 0:
-                msg += f"{coin}: {amount}\n"
+        # ===== SPOT & FUNDING =====
+        for t in ["spot", "funding"]:
+            balances = exchange.fetch_balance({"type": t})
+            msg += f"\n[{t.upper()}]\n"
 
-    await update.message.reply_text(msg)
+            has_coin = False
+            for coin, amount in balances["total"].items():
+                if amount and amount > 0:
+                    msg += f"{coin}: {amount}\n"
+                    has_coin = True
+
+            if not has_coin:
+                msg += "0\n"
+
+        # ===== EARN (FLEXIBLE SAVINGS) =====
+        try:
+            earn = exchange.private_get_finance_savings_balance()
+            data = earn.get("data", [])
+
+            msg += "\n[EARN]\n"
+
+            has_earn = False
+            for item in data:
+                ccy = item.get("ccy")
+                amt = float(item.get("amt", 0))
+                earnings = float(item.get("earnings", 0))
+
+                if amt > 0:
+                    msg += f"{ccy}: {amt} (+{earnings} lãi)\n"
+                    has_earn = True
+
+            if not has_earn:
+                msg += "0\n"
+
+        except Exception:
+            msg += "\n[EARN]\nKhông đọc được\n"
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi wallet: {e}")
+
     
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:

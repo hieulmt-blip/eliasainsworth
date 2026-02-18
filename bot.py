@@ -397,7 +397,7 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg += (
                     f"{ccy}\n"
                     f"•💰 Gốc: {amt}\n"
-                    f"• 💹Lãi: {earnings}\n\n"
+                    f"• 💹Lãi: {fmt(earnings)}\n\n"
                 )
 
         await update.message.reply_text(msg)

@@ -35,6 +35,14 @@ exchange = ccxt.okx({
 
 # 🚨 BẮT BUỘC – chặn load markets
 exchange.load_markets = lambda *args, **kwargs: {}
+exchange_trade = ccxt.okx({
+    "apiKey": os.getenv("OKX_API_KEY"),
+    "secret": os.getenv("OKX_SECRET"),
+    "password": os.getenv("OKX_PASSWORD"),
+    "enableRateLimit": True,
+    "options": {"defaultType": "spot"}
+})
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json
@@ -411,41 +419,29 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         symbol_input = context.args[0].upper()
-
-        if "/" not in symbol_input:
-            symbol = f"{symbol_input}/USDT"
-        else:
-            symbol = symbol_input
+        symbol = f"{symbol_input}/USDT"
 
         usdt_amount = float(context.args[1])
 
-        base, quote = symbol.split("/")
+        # load markets chỉ cho trade
+        exchange_trade.load_markets()
 
-        # check số dư USDT
-        balance = exchange.fetch_balance()
-        free_usdt = balance[quote]['free']
-
-        if usdt_amount > free_usdt:
-            await update.message.reply_text("❌ Không đủ USDT")
-            return
-
-        ticker = exchange.fetch_ticker(symbol)
-        price = ticker['last']
+        ticker = exchange_trade.fetch_ticker(symbol)
+        price = ticker["last"]
 
         amount = usdt_amount / price
-        amount = float(exchange.amount_to_precision(symbol, amount))
+        amount = float(exchange_trade.amount_to_precision(symbol, amount))
 
-        order = exchange.create_market_buy_order(symbol, amount)
+        order = exchange_trade.create_market_buy_order(symbol, amount)
 
         await update.message.reply_text(
-            f"✅ BUY thành công\n"
-            f"{usdt_amount} {quote} → {amount} {base}\n"
-            f"Giá: {price}\n"
+            f"✅ BUY {symbol}\n"
+            f"{usdt_amount} USDT\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi BUY: {str(e)}")
+        await update.message.reply_text(f"❌ BUY lỗi: {e}")
 
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -454,44 +450,28 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         symbol_input = context.args[0].upper()
+        symbol = f"{symbol_input}/USDT"
+
         usdt_amount = float(context.args[1])
 
-        # tự thêm USDT nếu user chỉ nhập BTC
-        if "/" not in symbol_input:
-            symbol = f"{symbol_input}/USDT"
-        else:
-            symbol = symbol_input
+        exchange_trade.load_markets()
 
-        base, quote = symbol.split("/")
+        ticker = exchange_trade.fetch_ticker(symbol)
+        price = ticker["last"]
 
-        # lấy giá hiện tại
-        ticker = exchange.fetch_ticker(symbol)
-        price = ticker['last']
-
-        # tính số lượng coin cần bán
         amount = usdt_amount / price
-        amount = float(exchange.amount_to_precision(symbol, amount))
+        amount = float(exchange_trade.amount_to_precision(symbol, amount))
 
-        # check số dư coin
-        balance = exchange.fetch_balance()
-        free_coin = balance[base]['free']
-
-        if amount > free_coin:
-            await update.message.reply_text("❌ Không đủ coin để bán")
-            return
-
-        order = exchange.create_market_sell_order(symbol, amount)
+        order = exchange_trade.create_market_sell_order(symbol, amount)
 
         await update.message.reply_text(
-            f"✅ SELL thành công\n"
-            f"Bán {amount} {base}\n"
-            f"≈ {usdt_amount} {quote}\n"
-            f"Giá: {price}\n"
+            f"✅ SELL {symbol}\n"
+            f"≈ {usdt_amount} USDT\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi SELL: {str(e)}")
+        await update.message.reply_text(f"❌ SELL lỗi: {e}")
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

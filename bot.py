@@ -11,22 +11,6 @@ from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 from decimal import Decimal
 from decimal import Decimal, getcontext
-import time
-
-LAST_MARKET_LOAD = 0
-MARKET_REFRESH_INTERVAL = 60 * 60 * 6  # reload mỗi 6 tiếng
-def ensure_markets():
-    global LAST_MARKET_LOAD
-
-    now = time.time()
-
-    if (
-        not exchange.markets
-        or now - LAST_MARKET_LOAD > MARKET_REFRESH_INTERVAL
-    ):
-        print("🔄 Reloading markets...")
-        exchange.load_markets(True)
-        LAST_MARKET_LOAD = now
 
 getcontext().prec = 50  # tăng precision lớn
 
@@ -49,6 +33,8 @@ exchange = ccxt.okx({
     "options": {"defaultType": "spot"}
 })
 
+# 🚨 BẮT BUỘC – chặn load markets
+exchange.load_markets = lambda *args, **kwargs: {}
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json
@@ -420,8 +406,6 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi staking: {e}")
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        ensure_markets()
-
         if len(context.args) < 2:
             await update.message.reply_text("Ví dụ: /buy btc 10")
             return
@@ -437,6 +421,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         base, quote = symbol.split("/")
 
+        # check số dư USDT
         balance = exchange.fetch_balance()
         free_usdt = balance[quote]['free']
 
@@ -464,8 +449,6 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        ensure_markets()
-
         if len(context.args) < 2:
             await update.message.reply_text("Ví dụ: /sell btc 10")
             return
@@ -473,6 +456,7 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         symbol_input = context.args[0].upper()
         usdt_amount = float(context.args[1])
 
+        # tự thêm USDT nếu user chỉ nhập BTC
         if "/" not in symbol_input:
             symbol = f"{symbol_input}/USDT"
         else:
@@ -480,12 +464,15 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         base, quote = symbol.split("/")
 
+        # lấy giá hiện tại
         ticker = exchange.fetch_ticker(symbol)
         price = ticker['last']
 
+        # tính số lượng coin cần bán
         amount = usdt_amount / price
         amount = float(exchange.amount_to_precision(symbol, amount))
 
+        # check số dư coin
         balance = exchange.fetch_balance()
         free_coin = balance[base]['free']
 

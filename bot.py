@@ -422,30 +422,28 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         usdt_amount = float(context.args[1])
 
         ticker = exchange_trade.fetch_ticker(symbol)
-
-        if not ticker or not ticker.get("last"):
-            await update.message.reply_text("❌ Không lấy được giá thị trường")
-            return
-
         price = float(ticker["last"])
 
-        amount = usdt_amount / price
+        raw_amount = usdt_amount / price
 
-        order = exchange_trade.create_market_buy_order(
-            symbol,
-            amount
-        )
+        # 👇 precision đúng theo market
+        amount = float(exchange_trade.amount_to_precision(symbol, raw_amount))
+
+        if amount <= 0:
+            await update.message.reply_text("❌ Số lượng quá nhỏ")
+            return
+
+        order = exchange_trade.create_market_buy_order(symbol, amount)
 
         await update.message.reply_text(
             f"✅ BUY {symbol}\n"
             f"{usdt_amount} USDT\n"
-            f"Giá ~ {price}\n"
+            f"Size: {amount}\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ BUY lỗi: {e}")
-
 
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -457,30 +455,25 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         usdt_amount = float(context.args[1])
 
         ticker = exchange_trade.fetch_ticker(symbol)
-
-        if not ticker or not ticker.get("last"):
-            await update.message.reply_text("❌ Không lấy được giá thị trường")
-            return
-
         price = float(ticker["last"])
 
-        base_amount = usdt_amount / price
+        raw_amount = usdt_amount / price
+        amount = float(exchange_trade.amount_to_precision(symbol, raw_amount))
 
-        order = exchange_trade.create_market_sell_order(
-            symbol,
-            base_amount
-        )
+        if amount <= 0:
+            await update.message.reply_text("❌ Số lượng quá nhỏ")
+            return
+
+        order = exchange_trade.create_market_sell_order(symbol, amount)
 
         await update.message.reply_text(
             f"✅ SELL {symbol}\n"
-            f"≈ {usdt_amount} USDT\n"
-            f"Giá ~ {price}\n"
+            f"Size: {amount}\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
-
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -504,6 +497,8 @@ async def startup():
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    # 👇 load markets cho trade riêng
+    exchange_trade.load_markets()
     print("✅ Webhook set & bot ready")
 
 @fastapi_app.post("/webhook")

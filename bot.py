@@ -10,16 +10,11 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 from decimal import Decimal
-import builtins
 
-_old_str = builtins.str
-
-def no_sci_str(x):
+def fmt(x):
     if isinstance(x, float):
         return format(Decimal(str(x)), 'f').rstrip('0').rstrip('.')
-    return _old_str(x)
-
-builtins.str = no_sci_str
+    return x
 
 load_dotenv()
 
@@ -126,10 +121,8 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "💰 TRADING BALANCE\n"
         for coin, amount in balances["total"].items():
             if amount and amount > 0:
-                msg += f"{coin}: {amount}\n"
-
+               msg += f"{coin}: {fmt(amount)}\n"
         await update.message.reply_text(msg)
-
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi balance: {e}")
         
@@ -140,10 +133,8 @@ async def funding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "💰 FUNDING BALANCE\n"
         for coin, amount in balances["total"].items():
             if amount and amount > 0:
-                msg += f"{coin}: {amount}\n"
-
+               msg += f"{coin}: {fmt(amount)}\n"
         await update.message.reply_text(msg or "Funding balance = 0")
-
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi funding: {e}")
         
@@ -159,9 +150,8 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             has_coin = False
             for coin, amount in balances["total"].items():
                 if amount and amount > 0:
-                    msg += f"{coin}: {amount}\n"
+                    msg += f"{coin}: {fmt(amount)}\n"
                     has_coin = True
-
             if not has_coin:
                 msg += "0\n"
 

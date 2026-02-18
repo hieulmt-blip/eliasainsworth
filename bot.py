@@ -389,17 +389,16 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "🏦 OKX EARN BALANCE\n\n"
 
         for item in data:
-            ccy = item.get("ccy")
-           amt = item.get("amt", "0")
-           earnings = item.get("earnings", "0")
+    ccy = item.get("ccy")
+    amt = item.get("amt", "0")
+    earnings = item.get("earnings", "0")
 
-
-            if amt > 0:
-                msg += (
-                    f"{ccy}\n"
-                    f"•💰 Gốc: {fmt(amt)}\n"
-                    f"• 💹Lãi: {fmt(earnings)}\n\n"
-                )
+    if float(amt) > 0:
+        msg += (
+            f"{ccy}\n"
+            f"•💰 Gốc: {fmt(amt)}\n"
+            f"• 💹Lãi: {fmt(earnings)}\n\n"
+        )
 
         await update.message.reply_text(msg)
 

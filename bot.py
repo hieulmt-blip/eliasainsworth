@@ -10,7 +10,6 @@ from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 from decimal import Decimal
-
 from decimal import Decimal, getcontext
 
 getcontext().prec = 50  # tăng precision lớn

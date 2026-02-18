@@ -9,6 +9,17 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
 from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
+from decimal import Decimal
+import builtins
+
+_old_str = builtins.str
+
+def no_sci_str(x):
+    if isinstance(x, float):
+        return format(Decimal(str(x)), 'f').rstrip('0').rstrip('.')
+    return _old_str(x)
+
+builtins.str = no_sci_str
 
 load_dotenv()
 

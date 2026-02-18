@@ -495,8 +495,6 @@ async def startup():
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    # 👇 load markets cho trade riêng
-    exchange_trade.load_markets()
     print("✅ Webhook set & bot ready")
 
 @fastapi_app.post("/webhook")

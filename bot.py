@@ -166,22 +166,18 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             has_earn = False
             for item in data:
-                ccy = item.get("ccy")
-                amt = float(item.get("amt", 0))
-                earnings = float(item.get("earnings", 0))
+    ccy = item.get("ccy")
+    amt = item.get("amt", "0")
+    earnings = item.get("earnings", "0")
 
-                if amt > 0:
-                    msg += f"{ccy}: {amt} (+{earnings} lãi)\n"
-                    has_earn = True
-
+    if Decimal(amt) > 0:
+        msg += f"{ccy}: {fmt(amt)} (+{fmt(earnings)} lãi)\n"
+        has_earn = True
             if not has_earn:
                 msg += "0\n"
-
         except Exception:
             msg += "\n[EARN]\nKhông đọc được\n"
-
         await update.message.reply_text(msg)
-
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi wallet: {e}")
 

@@ -11,10 +11,13 @@ from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 from decimal import Decimal
 
+from decimal import Decimal, getcontext
+
+getcontext().prec = 50  # tăng precision lớn
+
 def fmt(x):
-    if isinstance(x, float):
-        return format(Decimal(str(x)), 'f').rstrip('0').rstrip('.')
-    return x
+    d = Decimal(str(x))
+    return format(d.normalize(), 'f').rstrip('0').rstrip('.')
 
 load_dotenv()
 

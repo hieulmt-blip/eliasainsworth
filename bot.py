@@ -421,26 +421,31 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         symbol = f"{context.args[0].upper()}/USDT"
         usdt_amount = float(context.args[1])
 
-        order = exchange_trade.create_order(
-            symbol=symbol,
-            type="market",
-            side="buy",
-            amount=None,
-            params={
-                "tdMode": "cash",
-                "sz": str(usdt_amount),
-                "ccy": "USDT"
-            }
+        ticker = exchange_trade.fetch_ticker(symbol)
+
+        if not ticker or not ticker.get("last"):
+            await update.message.reply_text("❌ Không lấy được giá thị trường")
+            return
+
+        price = float(ticker["last"])
+
+        amount = usdt_amount / price
+
+        order = exchange_trade.create_market_buy_order(
+            symbol,
+            amount
         )
 
         await update.message.reply_text(
             f"✅ BUY {symbol}\n"
             f"{usdt_amount} USDT\n"
+            f"Giá ~ {price}\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ BUY lỗi: {e}")
+
 
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -452,7 +457,12 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         usdt_amount = float(context.args[1])
 
         ticker = exchange_trade.fetch_ticker(symbol)
-        price = ticker["last"]
+
+        if not ticker or not ticker.get("last"):
+            await update.message.reply_text("❌ Không lấy được giá thị trường")
+            return
+
+        price = float(ticker["last"])
 
         base_amount = usdt_amount / price
 
@@ -464,11 +474,13 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"✅ SELL {symbol}\n"
             f"≈ {usdt_amount} USDT\n"
+            f"Giá ~ {price}\n"
             f"Order ID: {order['id']}"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

@@ -418,28 +418,22 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Ví dụ: /buy btc 10")
             return
 
-        symbol = f"{context.args[0].upper()}/USDT"
-        usdt_amount = float(context.args[1])
+        coin = context.args[0].upper()
+        usdt_amount = str(context.args[1])
 
-        ticker = exchange_trade.fetch_ticker(symbol)
-        price = float(ticker["last"])
+        inst_id = f"{coin}-USDT"
 
-        raw_amount = usdt_amount / price
-
-        # 👇 precision đúng theo market
-        amount = float(exchange_trade.amount_to_precision(symbol, raw_amount))
-
-        if amount <= 0:
-            await update.message.reply_text("❌ Số lượng quá nhỏ")
-            return
-
-        order = exchange_trade.create_market_buy_order(symbol, amount)
+        order = exchange_trade.private_post_trade_order({
+            "instId": inst_id,
+            "tdMode": "cash",
+            "side": "buy",
+            "ordType": "market",
+            "sz": usdt_amount
+        })
 
         await update.message.reply_text(
-            f"✅ BUY {symbol}\n"
-            f"{usdt_amount} USDT\n"
-            f"Size: {amount}\n"
-            f"Order ID: {order['id']}"
+            f"✅ BUY {inst_id}\n"
+            f"{usdt_amount} USDT"
         )
 
     except Exception as e:
@@ -451,29 +445,33 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Ví dụ: /sell btc 10")
             return
 
-        symbol = f"{context.args[0].upper()}/USDT"
+        coin = context.args[0].upper()
         usdt_amount = float(context.args[1])
 
-        ticker = exchange_trade.fetch_ticker(symbol)
-        price = float(ticker["last"])
+        inst_id = f"{coin}-USDT"
 
-        raw_amount = usdt_amount / price
-        amount = float(exchange_trade.amount_to_precision(symbol, raw_amount))
+        ticker = exchange.public_get_market_ticker({
+            "instId": inst_id
+        })
 
-        if amount <= 0:
-            await update.message.reply_text("❌ Số lượng quá nhỏ")
-            return
+        price = float(ticker["data"][0]["last"])
+        base_amount = str(usdt_amount / price)
 
-        order = exchange_trade.create_market_sell_order(symbol, amount)
+        order = exchange_trade.private_post_trade_order({
+            "instId": inst_id,
+            "tdMode": "cash",
+            "side": "sell",
+            "ordType": "market",
+            "sz": base_amount
+        })
 
         await update.message.reply_text(
-            f"✅ SELL {symbol}\n"
-            f"Size: {amount}\n"
-            f"Order ID: {order['id']}"
+            f"✅ SELL {inst_id}\n≈ {usdt_amount} USDT"
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
+
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

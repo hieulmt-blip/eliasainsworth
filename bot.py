@@ -441,14 +441,26 @@ base, quote = symbol.split("/")
         await update.message.reply_text(f"❌ Lỗi BUY: {str(e)}")
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        symbol = context.args[0]
+        if len(context.args) < 2:
+            await update.message.reply_text("Ví dụ: /sell btc 10")
+            return
+
+        symbol_input = context.args[0].upper()
         usdt_amount = float(context.args[1])
+
+        # tự thêm USDT nếu user chỉ nhập BTC
+        if "/" not in symbol_input:
+            symbol = f"{symbol_input}/USDT"
+        else:
+            symbol = symbol_input
 
         base, quote = symbol.split("/")
 
+        # lấy giá hiện tại
         ticker = exchange.fetch_ticker(symbol)
         price = ticker['last']
 
+        # tính số lượng coin cần bán
         amount = usdt_amount / price
         amount = float(exchange.amount_to_precision(symbol, amount))
 
@@ -464,7 +476,8 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"✅ SELL thành công\n"
-            f"{amount} {base} ≈ {usdt_amount} {quote}\n"
+            f"Bán {amount} {base}\n"
+            f"≈ {usdt_amount} {quote}\n"
             f"Giá: {price}\n"
             f"Order ID: {order['id']}"
         )

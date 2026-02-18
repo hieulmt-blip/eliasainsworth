@@ -377,9 +377,7 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
 async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Flexible savings
         res = exchange.private_get_finance_savings_balance()
-
         data = res.get("data", [])
 
         if not data:
@@ -389,16 +387,16 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "🏦 OKX EARN BALANCE\n\n"
 
         for item in data:
-    ccy = item.get("ccy")
-    amt = item.get("amt", "0")
-    earnings = item.get("earnings", "0")
+            ccy = item.get("ccy")
+            amt = item.get("amt", "0")
+            earnings = item.get("earnings", "0")
 
-    if float(amt) > 0:
-        msg += (
-            f"{ccy}\n"
-            f"•💰 Gốc: {fmt(amt)}\n"
-            f"• 💹Lãi: {fmt(earnings)}\n\n"
-        )
+            if float(amt) > 0:
+                msg += (
+                    f"{ccy}\n"
+                    f"•💰 Gốc: {fmt(amt)}\n"
+                    f"• 💹Lãi: {fmt(earnings)}\n\n"
+                )
 
         await update.message.reply_text(msg)
 

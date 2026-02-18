@@ -447,7 +447,6 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         coin = context.args[0].upper()
         usdt_amount = float(context.args[1])
-
         inst_id = f"{coin}-USDT"
 
         ticker = exchange.public_get_market_ticker({
@@ -455,7 +454,11 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
 
         price = float(ticker["data"][0]["last"])
-        base_amount = str(usdt_amount / price)
+
+        base_amount = usdt_amount / price
+
+        # 👇 CẮT 8 DECIMAL CHO BTC
+        base_amount = format(base_amount, ".8f")
 
         order = exchange_trade.private_post_trade_order({
             "instId": inst_id,
@@ -471,7 +474,6 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
-
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

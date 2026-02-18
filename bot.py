@@ -406,11 +406,14 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi staking: {e}")
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        symbol = context.args[0]
-        usdt_amount = float(context.args[1])
+        symbol_input = context.args[0].upper()
+        if "/" not in symbol_input:
+            symbol = f"{symbol_input}/USDT"
+        else:
+    symbol = symbol_input
+usdt_amount = float(context.args[1])
 
-        base, quote = symbol.split("/")
-
+base, quote = symbol.split("/")
         # check số dư USDT
         balance = exchange.fetch_balance()
         free_usdt = balance[quote]['free']

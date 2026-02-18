@@ -418,21 +418,20 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Ví dụ: /buy btc 10")
             return
 
-        symbol_input = context.args[0].upper()
-        symbol = f"{symbol_input}/USDT"
-
+        symbol = f"{context.args[0].upper()}/USDT"
         usdt_amount = float(context.args[1])
 
-        # load markets chỉ cho trade
-        exchange_trade.load_markets()
-
-        ticker = exchange_trade.fetch_ticker(symbol)
-        price = ticker["last"]
-
-        amount = usdt_amount / price
-        amount = float(exchange_trade.amount_to_precision(symbol, amount))
-
-        order = exchange_trade.create_market_buy_order(symbol, amount)
+        order = exchange_trade.create_order(
+            symbol=symbol,
+            type="market",
+            side="buy",
+            amount=None,
+            params={
+                "tdMode": "cash",
+                "sz": str(usdt_amount),
+                "ccy": "USDT"
+            }
+        )
 
         await update.message.reply_text(
             f"✅ BUY {symbol}\n"
@@ -449,20 +448,18 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Ví dụ: /sell btc 10")
             return
 
-        symbol_input = context.args[0].upper()
-        symbol = f"{symbol_input}/USDT"
-
+        symbol = f"{context.args[0].upper()}/USDT"
         usdt_amount = float(context.args[1])
-
-        exchange_trade.load_markets()
 
         ticker = exchange_trade.fetch_ticker(symbol)
         price = ticker["last"]
 
-        amount = usdt_amount / price
-        amount = float(exchange_trade.amount_to_precision(symbol, amount))
+        base_amount = usdt_amount / price
 
-        order = exchange_trade.create_market_sell_order(symbol, amount)
+        order = exchange_trade.create_market_sell_order(
+            symbol,
+            base_amount
+        )
 
         await update.message.reply_text(
             f"✅ SELL {symbol}\n"

@@ -391,7 +391,7 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
             amt = item.get("amt", "0")
             earnings = item.get("earnings", "0")
 
-            if float(amt) > 0:
+            if Decimal(amt) > 0:
                 msg += (
                     f"{ccy}\n"
                     f"•💰 Gốc: {fmt(amt)}\n"

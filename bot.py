@@ -390,13 +390,14 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         for item in data:
             ccy = item.get("ccy")
-            amt = float(item.get("amt", 0))
-            earnings = float(item.get("earnings", 0))
+           amt = item.get("amt", "0")
+           earnings = item.get("earnings", "0")
+
 
             if amt > 0:
                 msg += (
                     f"{ccy}\n"
-                    f"•💰 Gốc: {amt}\n"
+                    f"•💰 Gốc: {fmt(amt)}\n"
                     f"• 💹Lãi: {fmt(earnings)}\n\n"
                 )
 

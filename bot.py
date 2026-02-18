@@ -406,14 +406,21 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi staking: {e}")
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        if len(context.args) < 2:
+            await update.message.reply_text("Ví dụ: /buy btc 10")
+            return
+
         symbol_input = context.args[0].upper()
+
         if "/" not in symbol_input:
             symbol = f"{symbol_input}/USDT"
         else:
-    symbol = symbol_input
-usdt_amount = float(context.args[1])
+            symbol = symbol_input
 
-base, quote = symbol.split("/")
+        usdt_amount = float(context.args[1])
+
+        base, quote = symbol.split("/")
+
         # check số dư USDT
         balance = exchange.fetch_balance()
         free_usdt = balance[quote]['free']
@@ -439,6 +446,7 @@ base, quote = symbol.split("/")
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi BUY: {str(e)}")
+
 async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if len(context.args) < 2:

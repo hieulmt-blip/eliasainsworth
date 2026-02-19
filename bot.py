@@ -153,7 +153,7 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "💳 YOUR WALLET\n"
 
         # ===== SPOT & FUNDING =====
-        for t in ["spot", "funding"]:
+        for t in ["trading", "funding"]:
             balances = exchange.fetch_balance({"type": t})
             msg += f"\n[{t.upper()}]\n"
 

@@ -387,26 +387,55 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
 async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        res = exchange.private_get_finance_savings_balance()
-        data = res.get("data", [])
+        # 1️⃣ Lấy balance hiện tại trong Earn
+        balance_res = exchange.private_get_finance_savings_balance()
+        balance_data = balance_res.get("data", [])
 
-        if not data:
+        if not balance_data:
             await update.message.reply_text("📦 Không có tài sản Earn.")
             return
 
-        msg = "🏦 OKX EARN BALANCE\n\n"
+        msg = "🏦 EARN BALANCE\n\n"
 
-        for item in data:
+        for item in balance_data:
             ccy = item.get("ccy")
-            amt = item.get("amt", "0")
-            earnings = item.get("earnings", "0")
+            current_amt = Decimal(item.get("amt", "0"))
 
-            if Decimal(amt) > 0:
-                msg += (
-                    f"{ccy}\n"
-                    f"•💰 Gốc: {fmt(amt)}\n"
-                    f"• 💹Lãi: {fmt(earnings)}\n\n"
-                )
+            if current_amt <= 0:
+                continue
+
+            # 2️⃣ Lấy tổng SUBSCRIBE
+            sub_res = exchange.private_get_asset_earn_subscription_records({
+                "ccy": ccy
+            })
+            sub_data = sub_res.get("data", [])
+
+            total_sub = Decimal("0")
+            for s in sub_data:
+                if s.get("state") == "success":
+                    total_sub += Decimal(s.get("amt", "0"))
+
+            # 3️⃣ Lấy tổng REDEEM
+            re_res = exchange.private_get_asset_earn_redemption_records({
+                "ccy": ccy
+            })
+            re_data = re_res.get("data", [])
+
+            total_re = Decimal("0")
+            for r in re_data:
+                if r.get("state") == "success":
+                    total_re += Decimal(r.get("amt", "0"))
+
+            # 4️⃣ Tính principal
+            principal = total_sub - total_re
+            earnings = current_amt - principal
+
+            msg += (
+                f"{ccy}\n"
+                f"• 💰 Gốc: {fmt(principal)}\n"
+                f"• 💹 Lãi: {fmt(earnings)}\n"
+                f"• 💵 Tổng: {fmt(current_amt)}\n\n"
+            )
 
         await update.message.reply_text(msg)
 

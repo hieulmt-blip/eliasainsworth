@@ -438,7 +438,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"✅ BUY {inst_id}\n"
-            f"{usdt_amount} USDT"
+            f"💸 {usdt_amount} USDT"
         )
 
     except Exception as e:
@@ -474,7 +474,7 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
 
         await update.message.reply_text(
-            f"✅ SELL {inst_id}\n≈ {usdt_amount} USDT"
+            f"✅ SELL {inst_id}\n≈ {usdt_amount} USDT 🤑"
         )
 
     except Exception as e:

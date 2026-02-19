@@ -386,7 +386,6 @@ async def positions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi positions:\n{e}")
 async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
-async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         res = exchange.private_get_finance_savings_balance()
         data = res.get("data", [])
@@ -395,23 +394,23 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📦 Không có tài sản Earn.")
             return
 
-        msg = "🏦 OKX EARN BALANCE\n\n"
+        msg = "🏦 EARN BALANCE\n\n"
 
         for item in data:
             ccy = item.get("ccy")
-            amt = Decimal(item.get("amt", "0"))          # Tổng
-            earnings = Decimal(item.get("earnings", "0"))  # Lãi
+            amt = Decimal(item.get("amt", "0"))
+            earnings = Decimal(item.get("earnings", "0"))
 
             if amt <= 0:
                 continue
 
-            principal = amt - earnings  # 🔥 Gốc thật
+            principal = amt - earnings
 
             msg += (
                 f"{ccy}\n"
                 f"• 💰 Gốc: {fmt(principal)}\n"
                 f"• 💹 Lãi: {fmt(earnings)}\n"
-                f"• 💵 Tổng: {fmt(amt)}\n\n"
+                f"• 📦 Tổng: {fmt(amt)}\n\n"
             )
 
         await update.message.reply_text(msg)

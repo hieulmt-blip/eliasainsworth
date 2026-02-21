@@ -17,7 +17,8 @@ import json
 import asyncio
 import requests
 import re
-
+from datetime import datetime
+import pytz
 def parse_money(value) -> float:
     """
     Parse mọi kiểu tiền từ Google Sheet:
@@ -551,105 +552,93 @@ def calculate_c20():
         if not c:
             continue
         c = c.strip().upper()
-
-        # loại rác
         if not c.isalnum():
             continue
         if len(c) > 10:
             continue
-
         coins.append(c)
 
     if not coins:
-        raise Exception(f"Row 6 không đọc được coin: {header}")
+        raise Exception("Không đọc được danh sách coin")
 
     # ===== CALL CMC =====
     api_key = os.getenv("CMC_API_KEY")
-    if not api_key:
-        raise Exception("CMC_API_KEY chưa cấu hình")
-
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 
-    headers = {
-        "X-CMC_PRO_API_KEY": api_key
-    }
-
-    params = {
-        "symbol": ",".join(coins),
-        "convert": "USD"
-    }
+    headers = {"X-CMC_PRO_API_KEY": api_key}
+    params = {"symbol": ",".join(coins), "convert": "USD"}
 
     r = requests.get(url, headers=headers, params=params, timeout=20)
-
-    if r.status_code != 200:
-        raise Exception(f"CMC error {r.status_code}: {r.text}")
-
     data = r.json()
 
-    if "data" not in data:
-        raise Exception(f"CMC trả lỗi: {data}")
-
-    # ===== TÍNH MARKETCAP =====
     total_marketcap = 0
     valid = 0
 
     for coin in coins:
         try:
-            mc = float(
-                data["data"][coin]["quote"]["USD"]["market_cap"]
-            )
+            mc = float(data["data"][coin]["quote"]["USD"]["market_cap"])
             total_marketcap += mc
             valid += 1
         except:
             continue
 
     if valid == 0:
-        raise Exception("CMC không trả dữ liệu cho bất kỳ coin nào")
+        raise Exception("CMC không trả dữ liệu")
 
     # ===== BASE VALUE =====
-  base_raw = sheet.acell("A17").value
-if not base_raw:
-    raise Exception("A17 (base marketcap) trống")
+    base_raw = sheet.acell("A17").value
+    if not base_raw:
+        raise Exception("A17 trống")
 
-base_value = parse_money(base_raw)
+    base_value = parse_money(base_raw)
 
-    # ===== INDEX =====
     index_value = (total_marketcap / base_value) * 1000
     index_value = round(index_value, 4)
 
-    # ===== LẤY INDEX GẦN NHẤT =====
-    old_raw = sheet.acell("A22").value
+    # ===== TIMEZONE VN =====
+    tz = pytz.timezone("Asia/Ho_Chi_Minh")
+    now = datetime.now(tz)
+    today_str = now.strftime("%Y-%m-%d")
 
-if old_raw:
-    old_value = parse_money(old_raw)
-else:
-    old_value = 1000
+    # ===== ĐỌC NGÀY LƯU MỐC =====
+    stored_date = sheet.acell("B23").value
+    midnight_raw = sheet.acell("A23").value
 
-    percent_change = ((index_value - old_value) / old_value) * 100
-    percent_change = round(percent_change, 2)
+    # Nếu chưa có mốc hoặc sang ngày mới → cập nhật mốc
+    if stored_date != today_str or not midnight_raw:
+        sheet.update("A23", index_value)
+        sheet.update("B23", today_str)
+        midnight_value = index_value
+    else:
+        midnight_value = parse_money(midnight_raw)
+
+    # ===== TÍNH ĐIỂM & % =====
+    point_change = round(index_value - midnight_value, 4)
+
+    if midnight_value == 0:
+        percent_change = 0
+    else:
+        percent_change = round((point_change / midnight_value) * 100, 2)
 
     # ===== UPDATE SHEET =====
-    from datetime import datetime
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     sheet.update("A21", index_value)
-    sheet.update("A22", index_value)
-    sheet.update("A1", f"Last update: {now}")
+    sheet.update("A1", f"Last update: {now.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    return index_value, percent_change, valid
+    return index_value, point_change, percent_change, valid
     
 async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("⏳ Đang tính C20INDEX...")
 
-        index, change, count = await asyncio.to_thread(calculate_c20)
+        index, point, percent, count = await asyncio.to_thread(calculate_c20)
 
-        emoji = "🟢" if change >= 0 else "🔴"
+        emoji = "🟢" if point >= 0 else "🔴"
+        arrow = "▲" if point >= 0 else "▼"
 
         await update.message.reply_text(
             f"📊 C20INDEX\n\n"
             f"Value: {index}\n"
-            f"{emoji} Change: {change:+.2f}%\n"
+            f"{emoji} {arrow} {point:+.4f} pts ({percent:+.2f}%)\n"
             f"Coins used: {count}"
         )
 

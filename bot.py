@@ -561,7 +561,7 @@ def calculate_c20():
         coins.append(c)
 
     if not coins:
-        raise Exception("Không đọc được danh sách coin")
+        raise Exception("Danh sách coin rỗng")
 
     # ===== CALL CMC =====
     api_key = os.getenv("CMC_API_KEY")
@@ -591,7 +591,7 @@ def calculate_c20():
             continue
 
     if valid == 0:
-        raise Exception("CMC không trả dữ liệu")
+        raise Exception("CMC không trả dữ liệu hợp lệ")
 
     # ===== BASE VALUE =====
     base_raw = sheet.acell("A17").value
@@ -600,10 +600,9 @@ def calculate_c20():
 
     base_value = parse_money(base_raw)
 
-    index_value = (total_marketcap / base_value) * 1000
-    index_value = round(index_value, 4)
+    index_value = round((total_marketcap / base_value) * 1000, 4)
 
-    # ===== TIMEZONE VN (KHÔNG CẦN PYTZ) =====
+    # ===== TIMEZONE VN =====
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     now = datetime.now(tz)
     today_str = now.strftime("%Y-%m-%d")
@@ -612,25 +611,26 @@ def calculate_c20():
     stored_date = sheet.acell("B23").value
     midnight_raw = sheet.acell("A23").value
 
-    # Nếu chưa có mốc hoặc sang ngày mới → cập nhật mốc
+    # Nếu sang ngày mới hoặc chưa có mốc
     if stored_date != today_str or not midnight_raw:
-        sheet.update("A23", index_value)
-        sheet.update("B23", today_str)
+        sheet.update("A23", [[index_value]])
+        sheet.update("B23", [[today_str]])
         midnight_value = index_value
     else:
         midnight_value = parse_money(midnight_raw)
 
-    # ===== TÍNH ĐIỂM & % =====
+    # ===== TÍNH ĐIỂM =====
     point_change = round(index_value - midnight_value, 4)
 
+    # ===== TÍNH % =====
     if midnight_value == 0:
         percent_change = 0
     else:
         percent_change = round((point_change / midnight_value) * 100, 2)
 
     # ===== UPDATE SHEET =====
-    sheet.update("A21", index_value)
-    sheet.update("A1", f"Last update: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    sheet.update("A21", [[index_value]])
+    sheet.update("A1", [[f"Last update: {now.strftime('%Y-%m-%d %H:%M:%S')}"]])
 
     return index_value, point_change, percent_change, valid
     

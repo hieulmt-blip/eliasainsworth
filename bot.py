@@ -4,6 +4,7 @@ import uvicorn
 import qrcode
 import io
 import ccxt
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
@@ -479,7 +480,26 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
+async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        url = os.getenv("C20INX_URL")
 
+        if not url:
+            await update.message.reply_text("❌ C20INX_URL chưa cấu hình")
+            return
+
+        r = requests.get(url, timeout=10)
+        data = r.json()
+
+        await update.message.reply_text(
+            f"📊 C20INDEX\n\n"
+            f"Value: {data['index']}\n"
+            f"Updated: {data['updated_at']}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi C20INDEX: {e}")
+        
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("balance", balance))
@@ -492,7 +512,7 @@ tg_app.add_handler(CommandHandler("positions", positions))
 tg_app.add_handler(CommandHandler("staking", staking))
 tg_app.add_handler(CommandHandler("buy", buy))
 tg_app.add_handler(CommandHandler("sell", sell))
-
+tg_app.add_handler(CommandHandler("c20inx", c20inx))
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

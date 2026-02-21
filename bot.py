@@ -511,26 +511,39 @@ def get_sheet():
 def calculate_c20():
     sheet = get_sheet()
 
-    # ===== LẤY COIN =====
-    header = sheet.row_values(7)
+    # ===== CHỈ LẤY VÙNG COIN =====
+    try:
+        header = sheet.get("A7:T7")[0]
+    except:
+        raise Exception("Không đọc được vùng coin A7:T7")
+
     coins = []
 
     for c in header:
+        if not c:
+            continue
+
         c = c.strip().upper()
-        if c.isalnum():
+
+        # bỏ rác
+        if c in ["ERROR", "MARKET", "CAP", "ALLOCATE"]:
+            continue
+
+        if c.isalnum() and len(c) <= 10:
             coins.append(c)
 
     if not coins:
-        raise Exception("Không đọc được danh sách coin từ sheet")
+        raise Exception("Danh sách coin rỗng sau khi lọc")
 
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 
-    headers = {
-        "X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")
-    }
-
-    if not headers["X-CMC_PRO_API_KEY"]:
+    api_key = os.getenv("CMC_API_KEY")
+    if not api_key:
         raise Exception("CMC_API_KEY chưa cấu hình")
+
+    headers = {
+        "X-CMC_PRO_API_KEY": api_key
+    }
 
     params = {
         "symbol": ",".join(coins),
@@ -545,14 +558,21 @@ def calculate_c20():
     data = r.json()
 
     total_marketcap = 0
+    valid_count = 0
 
     for coin in coins:
-        if coin not in data["data"]:
-            raise Exception(f"CMC không có dữ liệu cho {coin}")
+        try:
+            mc = float(
+                data["data"][coin]["quote"]["USD"]["market_cap"]
+            )
+            total_marketcap += mc
+            valid_count += 1
+        except:
+            # bỏ coin lỗi nhưng không crash
+            continue
 
-        total_marketcap += float(
-            data["data"][coin]["quote"]["USD"]["market_cap"]
-        )
+    if valid_count == 0:
+        raise Exception("CMC không trả dữ liệu cho bất kỳ coin nào")
 
     base_raw = sheet.acell("A17").value
     if not base_raw:
@@ -563,13 +583,13 @@ def calculate_c20():
     index_value = (total_marketcap / base_value) * 1000
     index_value = round(index_value, 4)
 
-    # ===== SO VỚI INDEX CŨ =====
+    # ===== SO % =====
     old_raw = sheet.acell("A22").value
 
     if old_raw:
         old_value = float(old_raw)
     else:
-        old_value = 1000  # nếu chưa có thì so với base
+        old_value = 1000
 
     percent_change = ((index_value - old_value) / old_value) * 100
     percent_change = round(percent_change, 2)
@@ -582,20 +602,21 @@ def calculate_c20():
     sheet.update("A22", index_value)
     sheet.update("A1", f"Last update: {now}")
 
-    return index_value, percent_change
+    return index_value, percent_change, valid_count
     
 async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("⏳ Đang tính C20INDEX...")
 
-        index, change = await asyncio.to_thread(calculate_c20)
+        index, change, count = await asyncio.to_thread(calculate_c20)
 
         emoji = "🟢" if change >= 0 else "🔴"
 
         await update.message.reply_text(
             f"📊 C20INDEX\n\n"
             f"Value: {index}\n"
-            f"{emoji} Change: {change:+.2f}%"
+            f"{emoji} Change: {change:+.2f}%\n"
+            f"Coins used: {count}"
         )
 
     except Exception as e:

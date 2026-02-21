@@ -511,9 +511,14 @@ def get_sheet():
 def calculate_c20():
     sheet = get_sheet()
 
-    # ⚠️ coin nằm ở row 7 theo ảnh m gửi
+    # ===== LẤY COIN =====
     header = sheet.row_values(7)
-    coins = [c.strip().upper() for c in header if c]
+    coins = []
+
+    for c in header:
+        c = c.strip().upper()
+        if c.isalnum():
+            coins.append(c)
 
     if not coins:
         raise Exception("Không đọc được danh sách coin từ sheet")
@@ -537,10 +542,7 @@ def calculate_c20():
     if r.status_code != 200:
         raise Exception(f"CMC error {r.status_code}: {r.text}")
 
-    try:
-        data = r.json()
-    except:
-        raise Exception(f"CMC không trả JSON: {r.text}")
+    data = r.json()
 
     total_marketcap = 0
 
@@ -561,19 +563,39 @@ def calculate_c20():
     index_value = (total_marketcap / base_value) * 1000
     index_value = round(index_value, 4)
 
-    # update vào A21
-    sheet.update("A21", index_value)
+    # ===== SO VỚI INDEX CŨ =====
+    old_raw = sheet.acell("A22").value
 
-    return index_value
+    if old_raw:
+        old_value = float(old_raw)
+    else:
+        old_value = 1000  # nếu chưa có thì so với base
+
+    percent_change = ((index_value - old_value) / old_value) * 100
+    percent_change = round(percent_change, 2)
+
+    # ===== UPDATE SHEET =====
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    sheet.update("A21", index_value)
+    sheet.update("A22", index_value)
+    sheet.update("A1", f"Last update: {now}")
+
+    return index_value, percent_change
     
 async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("⏳ Đang tính C20INDEX...")
 
-        index = await asyncio.to_thread(calculate_c20)
+        index, change = await asyncio.to_thread(calculate_c20)
+
+        emoji = "🟢" if change >= 0 else "🔴"
 
         await update.message.reply_text(
-            f"📊 C20INDEX\n\nValue: {index}"
+            f"📊 C20INDEX\n\n"
+            f"Value: {index}\n"
+            f"{emoji} Change: {change:+.2f}%"
         )
 
     except Exception as e:

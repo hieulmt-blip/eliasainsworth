@@ -16,7 +16,40 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 import asyncio
 import requests
+import re
 
+def parse_money(value) -> float:
+    """
+    Parse mọi kiểu tiền từ Google Sheet:
+    $ 1.885.719.621.143,16
+    1,885,719,621,143.16
+    1885719621143.16
+    """
+    if value is None:
+        raise ValueError("Giá trị tiền rỗng")
+
+    s = str(value).strip()
+
+    # bỏ ký tự tiền tệ và khoảng trắng
+    s = re.sub(r"[^\d,.\-]", "", s)
+
+    # Nếu có cả . và , → xác định decimal là ký tự xuất hiện cuối
+    if "." in s and "," in s:
+        if s.rfind(",") > s.rfind("."):
+            # format VN: 1.234.567,89
+            s = s.replace(".", "")
+            s = s.replace(",", ".")
+        else:
+            # format US: 1,234,567.89
+            s = s.replace(",", "")
+    else:
+        # chỉ có 1 loại dấu
+        if s.count(",") == 1 and s.count(".") == 0:
+            s = s.replace(",", ".")
+        else:
+            s = s.replace(",", "")
+
+    return float(s)
 getcontext().prec = 50  # tăng precision lớn
 
 def fmt(x):
@@ -574,11 +607,11 @@ def calculate_c20():
         raise Exception("CMC không trả dữ liệu cho bất kỳ coin nào")
 
     # ===== BASE VALUE =====
-    base_raw = sheet.acell("A17").value
-    if not base_raw:
-        raise Exception("A17 (base marketcap) trống")
+  base_raw = sheet.acell("A17").value
+if not base_raw:
+    raise Exception("A17 (base marketcap) trống")
 
-    base_value = float(base_raw.replace(",", ""))
+base_value = parse_money(base_raw)
 
     # ===== INDEX =====
     index_value = (total_marketcap / base_value) * 1000
@@ -587,10 +620,10 @@ def calculate_c20():
     # ===== LẤY INDEX GẦN NHẤT =====
     old_raw = sheet.acell("A22").value
 
-    if old_raw:
-        old_value = float(old_raw)
-    else:
-        old_value = 1000  # fallback base
+if old_raw:
+    old_value = parse_money(old_raw)
+else:
+    old_value = 1000
 
     percent_change = ((index_value - old_value) / old_value) * 100
     percent_change = round(percent_change, 2)

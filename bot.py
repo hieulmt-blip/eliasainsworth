@@ -15,6 +15,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 import asyncio
+import requests
 
 getcontext().prec = 50  # tăng precision lớn
 
@@ -485,10 +486,14 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
 def get_sheet():
     creds_json = os.getenv("GOOGLE_CREDENTIALS")
-if not creds_json:
-    raise Exception("GOOGLE_CREDENTIALS chưa cấu hình")
+    if not creds_json:
+        raise Exception("GOOGLE_CREDENTIALS chưa cấu hình")
 
-creds_dict = json.loads(creds_json)
+    sheet_id = os.getenv("SHEET_ID")
+    if not sheet_id:
+        raise Exception("SHEET_ID chưa cấu hình")
+
+    creds_dict = json.loads(creds_json)
 
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -500,13 +505,18 @@ creds_dict = json.loads(creds_json)
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(os.getenv("SHEET_ID")).sheet1
+    sheet = client.open_by_key(sheet_id).sheet1
     return sheet
+    
 def calculate_c20():
     sheet = get_sheet()
 
-    header = sheet.row_values(6)
-    coins = [c for c in header if c]
+    # ⚠️ coin nằm ở row 7 theo ảnh m gửi
+    header = sheet.row_values(7)
+    coins = [c.strip().upper() for c in header if c]
+
+    if not coins:
+        raise Exception("Không đọc được danh sách coin từ sheet")
 
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 
@@ -514,29 +524,52 @@ def calculate_c20():
         "X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")
     }
 
+    if not headers["X-CMC_PRO_API_KEY"]:
+        raise Exception("CMC_API_KEY chưa cấu hình")
+
     params = {
         "symbol": ",".join(coins),
         "convert": "USD"
     }
 
-    r = requests.get(url, headers=headers, params=params)
-    data = r.json()
+    r = requests.get(url, headers=headers, params=params, timeout=15)
+
+    if r.status_code != 200:
+        raise Exception(f"CMC error {r.status_code}: {r.text}")
+
+    try:
+        data = r.json()
+    except:
+        raise Exception(f"CMC không trả JSON: {r.text}")
 
     total_marketcap = 0
 
     for coin in coins:
+        if coin not in data["data"]:
+            raise Exception(f"CMC không có dữ liệu cho {coin}")
+
         total_marketcap += float(
             data["data"][coin]["quote"]["USD"]["market_cap"]
         )
 
-    base_value = float(sheet.acell("A17").value.replace(",", ""))
+    base_raw = sheet.acell("A17").value
+    if not base_raw:
+        raise Exception("A17 (base marketcap) trống")
+
+    base_value = float(base_raw.replace(",", ""))
+
     index_value = (total_marketcap / base_value) * 1000
+    index_value = round(index_value, 4)
 
-    sheet.update("A21", round(index_value, 4))
+    # update vào A21
+    sheet.update("A21", index_value)
 
-    return round(index_value, 4)
+    return index_value
+    
 async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        await update.message.reply_text("⏳ Đang tính C20INDEX...")
+
         index = await asyncio.to_thread(calculate_c20)
 
         await update.message.reply_text(
@@ -544,7 +577,7 @@ async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi C20INDEX: {e}")
+        await update.message.reply_text(f"❌ Lỗi C20INDEX:\n{e}")
         
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

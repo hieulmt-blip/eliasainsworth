@@ -18,7 +18,9 @@ import asyncio
 import requests
 import re
 from datetime import datetime
-import pytz
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 def parse_money(value) -> float:
     """
     Parse mọi kiểu tiền từ Google Sheet:
@@ -563,12 +565,18 @@ def calculate_c20():
 
     # ===== CALL CMC =====
     api_key = os.getenv("CMC_API_KEY")
-    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+    if not api_key:
+        raise Exception("CMC_API_KEY chưa cấu hình")
 
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"X-CMC_PRO_API_KEY": api_key}
     params = {"symbol": ",".join(coins), "convert": "USD"}
 
     r = requests.get(url, headers=headers, params=params, timeout=20)
+
+    if r.status_code != 200:
+        raise Exception(f"CMC error {r.status_code}")
+
     data = r.json()
 
     total_marketcap = 0
@@ -595,12 +603,12 @@ def calculate_c20():
     index_value = (total_marketcap / base_value) * 1000
     index_value = round(index_value, 4)
 
-    # ===== TIMEZONE VN =====
-    tz = pytz.timezone("Asia/Ho_Chi_Minh")
+    # ===== TIMEZONE VN (KHÔNG CẦN PYTZ) =====
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
     now = datetime.now(tz)
     today_str = now.strftime("%Y-%m-%d")
 
-    # ===== ĐỌC NGÀY LƯU MỐC =====
+    # ===== ĐỌC MỐC NGÀY =====
     stored_date = sheet.acell("B23").value
     midnight_raw = sheet.acell("A23").value
 

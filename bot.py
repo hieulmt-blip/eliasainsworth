@@ -4,7 +4,6 @@ import uvicorn
 import qrcode
 import io
 import ccxt
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram.ext import MessageHandler, filters, ApplicationHandlerStop
@@ -12,6 +11,10 @@ from telegram.ext import MessageHandler, filters
 from dotenv import load_dotenv
 from decimal import Decimal
 from decimal import Decimal, getcontext
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import json
+import asyncio
 
 getcontext().prec = 50  # tăng precision lớn
 
@@ -480,21 +483,64 @@ async def sell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ SELL lỗi: {e}")
+def get_sheet():
+    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+if not creds_json:
+    raise Exception("GOOGLE_CREDENTIALS chưa cấu hình")
+
+creds_dict = json.loads(creds_json)
+
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        creds_dict, scope
+    )
+
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(os.getenv("SHEET_ID")).sheet1
+    return sheet
+def calculate_c20():
+    sheet = get_sheet()
+
+    header = sheet.row_values(6)
+    coins = [c for c in header if c]
+
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+
+    headers = {
+        "X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")
+    }
+
+    params = {
+        "symbol": ",".join(coins),
+        "convert": "USD"
+    }
+
+    r = requests.get(url, headers=headers, params=params)
+    data = r.json()
+
+    total_marketcap = 0
+
+    for coin in coins:
+        total_marketcap += float(
+            data["data"][coin]["quote"]["USD"]["market_cap"]
+        )
+
+    base_value = float(sheet.acell("A17").value.replace(",", ""))
+    index_value = (total_marketcap / base_value) * 1000
+
+    sheet.update("A21", round(index_value, 4))
+
+    return round(index_value, 4)
 async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        url = os.getenv("C20INX_URL")
-
-        if not url:
-            await update.message.reply_text("❌ C20INX_URL chưa cấu hình")
-            return
-
-        r = requests.get(url, timeout=10)
-        data = r.json()
+        index = await asyncio.to_thread(calculate_c20)
 
         await update.message.reply_text(
-            f"📊 C20INDEX\n\n"
-            f"Value: {data['index']}\n"
-            f"Updated: {data['updated_at']}"
+            f"📊 C20INDEX\n\nValue: {index}"
         )
 
     except Exception as e:

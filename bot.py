@@ -20,6 +20,8 @@ import re
 from datetime import datetime
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ConversationHandler, CallbackQueryHandler
 
 def parse_money(value) -> float:
     """
@@ -55,6 +57,8 @@ def parse_money(value) -> float:
     return float(s)
 getcontext().prec = 50  # tăng precision lớn
 
+ADD_COIN = 1
+REMOVE_COIN = 2
 def fmt(x):
     d = Decimal(str(x))
     return format(d.normalize(), 'f').rstrip('0').rstrip('.')
@@ -652,7 +656,127 @@ async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi C20INDEX:\n{e}")
-        
+# ================== C20 LIST LOGIC ==================
+
+def get_c20_list():
+    sheet = get_sheet()
+    values = sheet.get("D17:D100")
+    return [row[0].strip().upper() for row in values if row and row[0]]
+
+
+def write_full_list(coins):
+    sheet = get_sheet()
+
+    # Clear vùng
+    sheet.update("D17:D100", [[""]] * 84)
+
+    # Ghi lại từ đầu
+    for i, coin in enumerate(coins):
+        sheet.update(f"D{17+i}", [[coin]])
+
+
+async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    coins = await asyncio.to_thread(get_c20_list)
+
+    if not coins:
+        text = "📊 C20 LIST\n\nChưa có coin nào."
+    else:
+        text = "📊 C20 LIST\n\n"
+        for c in coins:
+            text += f"• {c}\n"
+
+    keyboard = [
+        [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],
+        [InlineKeyboardButton("➖ Xoá coin", callback_data="remove_coin")]
+    ]
+
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def add_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text("Nhập ticker coin muốn thêm (VD: SOL)")
+    return ADD_COIN
+
+
+async def receive_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    coin = update.message.text.strip().upper()
+
+    coins = await asyncio.to_thread(get_c20_list)
+
+    if coin in coins:
+        await update.message.reply_text("⚠️ Coin đã tồn tại.")
+        return ConversationHandler.END
+
+    coins.append(coin)
+    await asyncio.to_thread(write_full_list, coins)
+
+    await update.message.reply_text(f"✅ Đã thêm {coin}")
+
+    return ConversationHandler.END
+
+
+async def remove_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    coins = await asyncio.to_thread(get_c20_list)
+
+    if not coins:
+        await query.message.reply_text("Không có coin để xoá.")
+        return ConversationHandler.END
+
+    text = "Nhập ticker coin muốn xoá:\n"
+    for c in coins:
+        text += f"• {c}\n"
+
+    await query.message.reply_text(text)
+
+    return REMOVE_COIN
+
+
+async def receive_remove_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    coin = update.message.text.strip().upper()
+
+    coins = await asyncio.to_thread(get_c20_list)
+
+    if coin not in coins:
+        await update.message.reply_text("⚠️ Coin không tồn tại.")
+        return ConversationHandler.END
+
+    coins.remove(coin)
+    await asyncio.to_thread(write_full_list, coins)
+
+    await update.message.reply_text(f"🗑 Đã xoá {coin}")
+
+    return ConversationHandler.END
+
+
+conv_handler = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(add_coin_button, pattern="add_coin"),
+        CallbackQueryHandler(remove_coin_button, pattern="remove_coin"),
+    ],
+    states={
+        ADD_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_coin)
+        ],
+        REMOVE_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_remove_coin)
+        ],
+    },
+    fallbacks=[],
+)
+
+tg_app.add_handler(CommandHandler("C20", c20))
+tg_app.add_handler(conv_handler)
+
+# ================== END C20 ==================
+
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("balance", balance))
@@ -666,6 +790,24 @@ tg_app.add_handler(CommandHandler("staking", staking))
 tg_app.add_handler(CommandHandler("buy", buy))
 tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("c20inx", c20inx))
+conv_handler = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(add_coin_button, pattern="add_coin"),
+        CallbackQueryHandler(remove_coin_button, pattern="remove_coin"),
+    ],
+    states={
+        ADD_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_coin)
+        ],
+        REMOVE_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_remove_coin)
+        ],
+    },
+    fallbacks=[],
+)
+
+tg_app.add_handler(CommandHandler("C20", c20))
+tg_app.add_handler(conv_handler)
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

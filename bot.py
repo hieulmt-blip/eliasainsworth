@@ -943,11 +943,7 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
-
-tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(conv_handler)
-tg_app.add_handler(CommandHandler("rebalance", rebalance))
-tg_app.add_handler(CallbackQueryHandler(rebalance_execute, pattern="rb_"))
 
 # ===== FASTAPI WEBHOOK =====
 

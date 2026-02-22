@@ -813,12 +813,83 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
+async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        exchange = ccxt.okx({
+            "apiKey": os.getenv("OKX_API_KEY"),
+            "secret": os.getenv("OKX_SECRET_KEY"),
+            "password": os.getenv("OKX_PASSPHRASE"),
+            "enableRateLimit": True,
+        })
 
+        combined = {}
+        wallet_types = ["trading", "funding", "unified"]
+
+        # ===== 1️⃣ GỘP TẤT CẢ VÍ =====
+        for wtype in wallet_types:
+            try:
+                balance = exchange.fetch_balance({"type": wtype})
+                for coin, amount in balance["total"].items():
+                    if amount and amount > 0:
+                        combined[coin] = combined.get(coin, 0) + amount
+            except:
+                pass
+
+        coin_data = []
+        total_value = 0
+
+        # ===== 2️⃣ TÍNH VALUE USDT =====
+        for coin, amount in combined.items():
+            try:
+                if coin == "USDT":
+                    price = 1
+                else:
+                    ticker = exchange.fetch_ticker(f"{coin}/USDT")
+                    price = ticker["last"]
+
+                value = amount * price
+
+                # 🔥 BỎ COIN < 0.5$
+                if value < 0.5:
+                    continue
+
+                coin_data.append({
+                    "coin": coin,
+                    "amount": amount,
+                    "value": value
+                })
+
+                total_value += value
+
+            except:
+                continue
+
+        # ===== 3️⃣ TÍNH % PHÂN BỔ =====
+        for item in coin_data:
+            item["percent"] = (item["value"] / total_value) * 100 if total_value > 0 else 0
+
+        # ===== 4️⃣ SORT GIẢM DẦN =====
+        coin_data.sort(key=lambda x: x["percent"], reverse=True)
+
+        # ===== 5️⃣ BUILD MESSAGE =====
+        message = "📊 *OKX PORTFOLIO ALLOCATION*\n\n"
+
+        for item in coin_data:
+            message += (
+                f"*{item['coin']}*\n"
+                f"Amount: `{item['amount']:.6f}`\n"
+                f"Value: `{item['value']:.2f} USDT`\n"
+                f"Allocation: `{item['percent']:.2f}%`\n\n"
+            )
+
+        message += f"💰 *TOTAL:* `{total_value:.2f} USDT`"
+
+        await update.message.reply_text(message, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi: {str(e)}")
+        
 tg_app.add_handler(CommandHandler("C20", c20))
-tg_app.add_handler(conv_handler)
-
-# ================== END C20 ==================
-
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("balance", balance))
@@ -832,6 +903,7 @@ tg_app.add_handler(CommandHandler("staking", staking))
 tg_app.add_handler(CommandHandler("buy", buy))
 tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("c20inx", c20inx))
+tg_app.add_handler(CommandHandler("scale", scale))
 conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(add_coin_button, pattern="add_coin"),

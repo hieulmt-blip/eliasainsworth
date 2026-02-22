@@ -1327,28 +1327,31 @@ def update_today_nav_index():
     today = now.strftime("%Y-%m-%d")
 
     dates = sheet.get("K17:K500")
-    row_index = None
+
+    # Lấy ngày cuối cùng đang có trong sheet
+    last_row = 16
+    last_date = None
 
     for i, row in enumerate(dates):
-        if row and today in row[0]:
-            row_index = 17 + i
-            break
+        if row and row[0]:
+            last_row = 17 + i
+            last_date = row[0]
 
     nav = get_total_nav_index()
 
-    if row_index is None:
-        last_row = 16
-        for i, row in enumerate(dates):
-            if row and row[0]:
-                last_row = 17 + i
+    # Nếu hôm nay đã tồn tại → chỉ update NAV
+    if last_date == today:
+        sheet.update(f"L{last_row}", [[nav]])
+        return nav, last_row
 
-        row_index = last_row + 1
-        sheet.update(f"K{row_index}", [[today]])
-        sheet.update(f"M{row_index}", [[0]])
+    # Nếu hôm nay là ngày mới → tạo dòng mới
+    new_row = last_row + 1
 
-    sheet.update(f"L{row_index}", [[nav]])
+    sheet.update(f"K{new_row}", [[today]])
+    sheet.update(f"L{new_row}", [[nav]])
+    sheet.update(f"M{new_row}", [[0]])
 
-    return nav, row_index
+    return nav, new_row
     
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))

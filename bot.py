@@ -1206,10 +1206,9 @@ def write_market_cap_if_needed(sheet, total_marketcap):
 
 def calculate_bdinx():
     sheet = get_sheet()
-
     rows = sheet.get("K17:O500")
 
-    if not rows or len(rows) < 1:
+    if not rows:
         raise Exception("Chưa có dữ liệu BDINX")
 
     last_index = 1000
@@ -1220,7 +1219,7 @@ def calculate_bdinx():
         if len(row) < 2 or not row[1]:
             continue
 
-        nav = float(str(row[1]).replace(",", "."))
+        nav = parse_money(row[1])
 
         net_flow = 0
         if len(row) >= 3 and row[2]:
@@ -1228,14 +1227,13 @@ def calculate_bdinx():
 
         row_number = 17 + i
 
-        # ===== BASE (dòng 17) =====
+        # ===== BASE =====
         if i == 0:
-            sheet.update(f"O{row_number}", [[1000]])
             sheet.update(f"N{row_number}", [[0]])
+            sheet.update(f"O{row_number}", [[1000]])
             last_index = 1000
             continue
 
-        # ===== NAV hôm trước =====
         prev_nav = parse_money(rows[i-1][1])
 
         if prev_nav == 0:

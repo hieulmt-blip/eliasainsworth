@@ -1108,7 +1108,7 @@ async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
         percent = (C - X) / X * 100
 
         msg = (
-            f"📊 CAPITAL\n\n"
+            f"📊 CAPITAL ALLOCATION \n\n"
             f"C (Current): {C:,.0f}\n"
             f"X (Anchor): {X:,.0f}\n"
             f"Anchor used: {anchor_label}\n\n"

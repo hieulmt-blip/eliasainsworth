@@ -840,20 +840,56 @@ async def remove_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def receive_remove_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    coin = update.message.text.strip().upper()
+    try:
+        coin = update.message.text.strip().upper()
+        coins = await asyncio.to_thread(get_c20_list)
 
-    coins = await asyncio.to_thread(get_c20_list)
+        if coin not in coins:
+            await update.message.reply_text("⚠️ Coin không tồn tại.")
+            return ConversationHandler.END
 
-    if coin not in coins:
-        await update.message.reply_text("⚠️ Coin không tồn tại.")
+        api_key = os.getenv("CMC_API_KEY")
+        url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+        headers = {"X-CMC_PRO_API_KEY": api_key}
+
+        # ===== LẤY MARKET CAP TOÀN BỘ LIST =====
+        params = {"symbol": ",".join(coins), "convert": "USD"}
+        r = requests.get(url, headers=headers, params=params, timeout=20)
+        data = r.json()
+
+        total_cap = 0
+        remove_cap = 0
+
+        for c in coins:
+            try:
+                mc = float(data["data"][c]["quote"]["USD"]["market_cap"])
+                total_cap += mc
+                if c == coin:
+                    remove_cap = mc
+            except:
+                pass
+
+        percent_decrease = 0
+        if total_cap > 0:
+            percent_decrease = (remove_cap / total_cap) * 100
+
+        # ===== XOÁ COIN =====
+        coins.remove(coin)
+        await asyncio.to_thread(write_full_list, coins)
+
+        # ===== UPDATE RATIO NHƯ CŨ =====
+        await asyncio.to_thread(update_and_get_capital_ratios)
+
+        await update.message.reply_text(
+            f"🗑 Đã xoá {coin}\n"
+            f"📉 Vốn danh sách giảm -{percent_decrease:.2f}%"
+        )
+
         return ConversationHandler.END
 
-    coins.remove(coin)
-    await asyncio.to_thread(write_full_list, coins)
-
-    await update.message.reply_text(f"🗑 Đã xoá {coin}")
-
-    return ConversationHandler.END
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi xoá coin:\n{e}")
+        return ConversationHandler.END
 
 
 conv_handler = ConversationHandler(

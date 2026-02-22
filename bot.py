@@ -1021,6 +1021,8 @@ async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================= DAILY MARKET CAP RECORD =================
 
+# ================= DAILY MARKET CAP RECORD =================
+
 async def record_daily_market_cap():
     try:
         sheet = get_sheet()
@@ -1034,27 +1036,55 @@ async def record_daily_market_cap():
 
         today_str = now.strftime("%Y-%m-%d")
 
-        # 🚫 tránh ghi trùng
+        # ===== 1️⃣ Check đã ghi hôm nay chưa =====
         existing_dates = sheet.get("H17:H500")
         for row in existing_dates:
             if row and today_str in row[0]:
-                return  # đã ghi rồi
+                print("⛔ Đã ghi hôm nay rồi")
+                return
 
-        # lấy Market Cap hiện tại từ U13
+        # ===== 2️⃣ Lấy Market Cap hiện tại từ U13 =====
         raw = sheet.acell("U13").value
+        if not raw:
+            print("❌ U13 trống")
+            return
+
         current_cap = parse_money(raw)
 
-        # tìm dòng trống đầu tiên
-        col_g = sheet.col_values(7)
-        next_row = len(col_g) + 1
+        # ===== 3️⃣ Tìm dòng trống thật sự từ G17 =====
+        col_data = sheet.get("G17:G500")
 
+        next_row = 17
+        for i, row in enumerate(col_data):
+            if not row or not row[0]:
+                next_row = 17 + i
+                break
+        else:
+            next_row = 17 + len(col_data)
+
+        # ===== 4️⃣ Ghi vào sheet =====
         sheet.update(f"G{next_row}", [[current_cap]])
         sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
 
-        print("✅ Market Cap 12:00 recorded")
+        print(f"✅ Market Cap ghi tại G{next_row}")
 
     except Exception as e:
         print("❌ Lỗi record_daily_market_cap:", e)
+
+
+# ================= CLOCK SYNC SCHEDULER =================
+
+async def scheduler_loop():
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+
+    while True:
+        now = datetime.now(tz)
+
+        # ⏱ Đồng bộ theo phút thật
+        wait = 60 - now.second
+        await asyncio.sleep(wait)
+
+        await record_daily_market_cap()
 async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
 

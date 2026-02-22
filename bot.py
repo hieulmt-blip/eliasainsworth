@@ -77,7 +77,16 @@ exchange = ccxt.okx({
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}
 })
-
+# ===== OKX INDEX (READ-ONLY) =====
+exchange_index = ccxt.okx({
+    "apiKey": os.getenv("OKX_API_KEY_INDEX"),
+    "secret": os.getenv("OKX_SECRET_INDEX"),
+    "password": os.getenv("OKX_PASSWORD_INDEX"),
+    "enableRateLimit": True,
+    "options": {
+        "defaultType": "spot"
+    }
+})
 # 🚨 BẮT BUỘC – chặn load markets
 exchange.load_markets = lambda *args, **kwargs: {}
 exchange_trade = ccxt.okx({
@@ -1097,11 +1106,20 @@ async def record_daily_market_cap():
 
 async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    print("🚀 Scheduler started")
+    print("🚀 BDINX Scheduler started")
 
     while True:
-        await record_daily_market_cap()
-        await asyncio.sleep(60)
+        now = datetime.now(tz)
+
+        if now.minute % 5 == 0 and now.second < 8:
+            try:
+                nav, row = await asyncio.to_thread(update_today_nav_index)
+                await asyncio.to_thread(calculate_bdinx)
+                print(f"✅ BDINX updated row {row}: NAV={nav}")
+            except Exception as e:
+                print("❌ BDINX auto error:", e)
+
+        await asyncio.sleep(10)
 
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -1190,7 +1208,7 @@ def calculate_bdinx():
     sheet = get_sheet()
 
     # Lấy toàn bộ bảng BDINX
-    rows = sheet.get("K18:O500")  
+    rows = sheet.get("K17:O500")  
     # K = Date
     # L = NAV
     # M = Net Flow
@@ -1237,8 +1255,8 @@ def calculate_bdinx():
         last_index = last_index * (1 + daily_return)
 
         # update Daily Return & BDINX
-        sheet.update(f"N{18+i}", [[round(daily_return, 6)]])
-        sheet.update(f"O{18+i}", [[round(last_index, 4)]])
+        sheet.update(f"O{17+i}", ...)
+        sheet.update(f"N{17+i}", ...)
 
         results.append((daily_return, last_index))
 
@@ -1256,8 +1274,82 @@ async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi BDINX:\n{e}")
+def get_total_nav_index():
+    combined = {}
 
+    account = exchange_index.private_get_account_balance()
+    for acc in account.get("data", []):
+        for detail in acc.get("details", []):
+            coin = detail.get("ccy")
+            eq = float(detail.get("eq", 0))
+            if eq > 0:
+                combined[coin] = combined.get(coin, 0) + eq
 
+    funding = exchange_index.private_get_asset_balances()
+    for item in funding.get("data", []):
+        coin = item.get("ccy")
+        bal = float(item.get("bal", 0))
+        if bal > 0:
+            combined[coin] = combined.get(coin, 0) + bal
+
+    try:
+        earn = exchange_index.private_get_finance_savings_balance()
+        for item in earn.get("data", []):
+            coin = item.get("ccy")
+            amt = float(item.get("amt", 0))
+            if amt > 0:
+                combined[coin] = combined.get(coin, 0) + amt
+    except:
+        pass
+
+    total = 0
+
+    for coin, amount in combined.items():
+        try:
+            if coin == "USDT":
+                price = 1
+            else:
+                ticker = exchange_index.public_get_market_ticker({
+                    "instId": f"{coin}-USDT"
+                })
+                price = float(ticker["data"][0]["last"])
+
+            total += amount * price
+        except:
+            continue
+
+    return round(total, 4)
+def update_today_nav_index():
+    sheet = get_sheet()
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    now = datetime.now(tz)
+
+    today = now.strftime("%Y-%m-%d")
+
+    dates = sheet.get("K17:K500")
+    row_index = None
+
+    for i, row in enumerate(dates):
+        if row and today in row[0]:
+            row_index = 17 + i
+            break
+
+    nav = get_total_nav_index()
+
+    if row_index is None:
+        last_row = 16
+        for i, row in enumerate(dates):
+            if row and row[0]:
+                last_row = 17 + i
+
+        row_index = last_row + 1
+        sheet.update(f"K{row_index}", [[today]])
+        sheet.update(f"M{row_index}", [[0]])
+
+    sheet.update(f"L{row_index}", [[nav]])
+
+    return nav, row_index
+    
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

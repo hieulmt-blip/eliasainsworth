@@ -896,7 +896,7 @@ async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # =========================
         # 6️⃣ OUTPUT
         # =========================
-        msg = "📊 *OKX TOTAL PORTFOLIO (ALL + EARN)*\n\n"
+        msg = "📊 *TOTAL PORTFOLIO *\n\n"
 
         for item in coin_data:
             msg += (

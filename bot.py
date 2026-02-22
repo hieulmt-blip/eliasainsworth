@@ -1207,45 +1207,35 @@ def write_market_cap_if_needed(sheet, total_marketcap):
 def calculate_bdinx():
     sheet = get_sheet()
 
-    # Lấy toàn bộ bảng BDINX
-    rows = sheet.get("K17:O500")  
-    # K = Date
-    # L = NAV
-    # M = Net Flow
-    # N = Daily Return
-    # O = BDINX
+    rows = sheet.get("K17:O500")
 
-    if not rows or len(rows) < 2:
-        raise Exception("Chưa đủ dữ liệu BDINX")
+    if not rows or len(rows) < 1:
+        raise Exception("Chưa có dữ liệu BDINX")
 
     last_index = 1000
-    results = []
 
     for i in range(len(rows)):
         row = rows[i]
 
-        if len(row) < 2:
+        if len(row) < 2 or not row[1]:
             continue
 
-        try:
-            nav = parse_money(row[1])
-        except:
-            continue
+        nav = parse_money(row[1])
 
         net_flow = 0
         if len(row) >= 3 and row[2]:
-            try:
-                net_flow = parse_money(row[2])
-            except:
-                net_flow = 0
+            net_flow = parse_money(row[2])
 
-        # dòng đầu → set base
+        row_number = 17 + i
+
+        # ===== BASE (dòng 17) =====
         if i == 0:
-            sheet.update(f"O{18+i}", [[1000]])
+            sheet.update(f"O{row_number}", [[1000]])
+            sheet.update(f"N{row_number}", [[0]])
             last_index = 1000
             continue
 
-        # lấy NAV hôm trước
+        # ===== NAV hôm trước =====
         prev_nav = parse_money(rows[i-1][1])
 
         if prev_nav == 0:
@@ -1254,13 +1244,11 @@ def calculate_bdinx():
         daily_return = (nav - net_flow) / prev_nav - 1
         last_index = last_index * (1 + daily_return)
 
-        # update Daily Return & BDINX
-        sheet.update(f"O{17+i}", ...)
-        sheet.update(f"N{17+i}", ...)
-
-        results.append((daily_return, last_index))
+        sheet.update(f"N{row_number}", [[round(daily_return, 6)]])
+        sheet.update(f"O{row_number}", [[round(last_index, 4)]])
 
     return last_index
+    
 async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text("⏳ Đang tính BDINX...")

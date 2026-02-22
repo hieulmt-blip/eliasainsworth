@@ -662,7 +662,41 @@ def get_c20_list():
     sheet = get_sheet()
     values = sheet.get("D17:D100")
     return [row[0].strip().upper() for row in values if row and row[0]]
+    
+def get_capital_ratios():
+    sheet = get_sheet()
 
+    # Lấy header row 6 (ticker)
+    header = sheet.get("A6:T6")[0]
+
+    # Lấy base % row 8
+    base_row = sheet.get("A8:T8")[0]
+
+    # Tạo dict ticker -> base %
+    base_dict = {}
+    for i, coin in enumerate(header):
+        if coin and base_row[i]:
+            try:
+                base_dict[coin.strip().upper()] = float(base_row[i])
+            except:
+                continue
+
+    # Lấy list coin đang có
+    coins = get_c20_list()
+
+    # Tính tổng base %
+    total_base = sum(base_dict.get(c, 0) for c in coins)
+
+    ratios = {}
+
+    if total_base == 0:
+        return ratios
+
+    for c in coins:
+        base_val = base_dict.get(c, 0)
+        ratios[c] = round((base_val / total_base) * 100, 2)
+
+    return ratios
 
 def write_full_list(coins):
     sheet = get_sheet()
@@ -676,14 +710,14 @@ def write_full_list(coins):
 
 
 async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    coins = await asyncio.to_thread(get_c20_list)
+    ratios = await asyncio.to_thread(get_capital_ratios)
 
-    if not coins:
+    if not ratios:
         text = "📊 C20 LIST\n\nChưa có coin nào."
     else:
-        text = "📊 C20 LIST\n\n"
-        for c in coins:
-            text += f"• {c}\n"
+        text = "📊 C20 LIST (Capital Ratio)\n\n"
+        for coin, ratio in ratios.items():
+            text += f"{coin} — {ratio:.2f}%\n"
 
     keyboard = [
         [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],
@@ -694,8 +728,7 @@ async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
-
+    
 async def add_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()

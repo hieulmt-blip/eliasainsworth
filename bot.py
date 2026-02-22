@@ -666,19 +666,19 @@ def get_c20_list():
 def update_and_get_capital_ratios():
     sheet = get_sheet()
 
-    # ===== HEADER & BASE =====
     header = sheet.get("A6:T6")[0]
     base_row = sheet.get("A8:T8")[0]
 
     base_dict = {}
+
     for i, coin in enumerate(header):
         if coin and base_row[i]:
             try:
-                base_dict[coin.strip().upper()] = float(base_row[i])
+                val = str(base_row[i]).replace(",", ".")
+                base_dict[coin.strip().upper()] = float(val)
             except:
-                pass
+                continue
 
-    # ===== LIST COIN =====
     values = sheet.get("D17:D100")
     coins = [row[0].strip().upper() for row in values if row and row[0]]
 
@@ -699,12 +699,10 @@ def update_and_get_capital_ratios():
         ratios[coin] = ratio
         ratio_rows.append([ratio])
 
-    # ===== CLEAR & UPDATE 1 LẦN =====
     sheet.update("E17:E100", [[""]] * 84)
     sheet.update(f"E17:E{16+len(ratio_rows)}", ratio_rows)
 
     return ratios
-
 def write_full_list(coins):
     sheet = get_sheet()
 

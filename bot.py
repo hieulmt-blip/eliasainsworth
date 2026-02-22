@@ -1017,7 +1017,56 @@ async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ SCALE lỗi:\n{e}")
+# ================= DAILY MARKET CAP RECORD =================
 
+# ================= DAILY MARKET CAP RECORD =================
+
+async def record_daily_market_cap():
+    try:
+        sheet = get_sheet()
+
+        tz = ZoneInfo("Asia/Ho_Chi_Minh")
+        now = datetime.now(tz)
+
+        # 🎯 CHỈ GHI ĐÚNG 12:00
+        if not (now.hour == 12 and now.minute == 0):
+            return
+
+        today_str = now.strftime("%Y-%m-%d")
+
+        # 🚫 tránh ghi trùng
+        existing_dates = sheet.get("H17:H500")
+        for row in existing_dates:
+            if row and today_str in row[0]:
+                return  # đã ghi rồi
+
+        # lấy Market Cap hiện tại từ U13
+        raw = sheet.acell("U13").value
+        current_cap = parse_money(raw)
+
+        # tìm dòng trống đầu tiên
+        col_g = sheet.col_values(7)
+        next_row = len(col_g) + 1
+
+        sheet.update(f"G{next_row}", [[current_cap]])
+        sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
+
+        print("✅ Market Cap 12:00 recorded")
+
+    except Exception as e:
+        print("❌ Lỗi record_daily_market_cap:", e)
+async def scheduler_loop():
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+
+    while True:
+        now = datetime.now(tz)
+
+        # tính số giây đến phút kế tiếp
+        wait = 60 - now.second
+        await asyncio.sleep(wait)
+
+        await record_daily_market_cap()
+        
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

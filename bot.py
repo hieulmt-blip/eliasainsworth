@@ -1079,7 +1079,7 @@ async def scheduler_loop():
 
     while True:
         now = datetime.now(tz)
-
+        print("⏰ tick", now.strftime("%H:%M:%S"))
         # ⏱ Đồng bộ theo phút thật
         wait = 60 - now.second
         await asyncio.sleep(wait)

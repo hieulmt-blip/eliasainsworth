@@ -1029,63 +1029,52 @@ async def record_daily_market_cap():
 
         tz = ZoneInfo("Asia/Ho_Chi_Minh")
         now = datetime.now(tz)
-
-        # 🎯 CHỈ GHI ĐÚNG 12:00
-        if not (now.hour == 12 and now.minute == 0):
-            return
-
         today_str = now.strftime("%Y-%m-%d")
 
-        # ===== 1️⃣ Check đã ghi hôm nay chưa =====
+        # ⛔ chưa tới 13:30 thì thoát
+        if now.hour < 13 or (now.hour == 13 and now.minute < 30):
+            return
+
+        # ⛔ nếu hôm nay đã ghi rồi thì thoát
         existing_dates = sheet.get("H17:H500")
         for row in existing_dates:
             if row and today_str in row[0]:
-                print("⛔ Đã ghi hôm nay rồi")
                 return
 
-        # ===== 2️⃣ Lấy Market Cap hiện tại từ U13 =====
+        # ===== Lấy market cap hiện tại từ U13 =====
         raw = sheet.acell("U13").value
         if not raw:
-            print("❌ U13 trống")
             return
 
         current_cap = parse_money(raw)
 
-        # ===== 3️⃣ Tìm dòng trống thật sự từ G17 =====
+        # ===== Tìm dòng cuối có dữ liệu trong cột G =====
         col_data = sheet.get("G17:G500")
 
-        next_row = 17
+        last_row = 16  # mặc định trước G17
+
         for i, row in enumerate(col_data):
-            if not row or not row[0]:
-                next_row = 17 + i
-                break
-        else:
-            next_row = 17 + len(col_data)
+            if row and row[0]:
+                last_row = 17 + i
 
-        # ===== 4️⃣ Ghi vào sheet =====
+        next_row = last_row + 1
+
+        # ===== Ghi vào G và H =====
         sheet.update(f"G{next_row}", [[current_cap]])
-        sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
+        sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 13:30")]])
 
-        print(f"✅ Market Cap ghi tại G{next_row}")
+        print(f"✅ Recorded market cap at G{next_row}")
 
     except Exception as e:
-        print("❌ Lỗi record_daily_market_cap:", e)
-
-
-# ================= CLOCK SYNC SCHEDULER =================
+        print("❌ record error:", e)
 
 async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     print("🚀 Scheduler started")
 
     while True:
-        now = datetime.now(tz)
-        print("⏰ tick", now.strftime("%H:%M:%S"))
-
-        if now.hour == 12 and now.minute <= 1:
-            await record_daily_market_cap()
-
-        await asyncio.sleep(30)
+        await record_daily_market_cap()
+        await asyncio.sleep(60)
 
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

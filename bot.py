@@ -716,14 +716,32 @@ def write_full_list(coins):
 
 async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        ratios = await asyncio.to_thread(update_and_get_capital_ratios)
+        coins = await asyncio.to_thread(get_c20_list)
 
-        if not ratios:
-            text = "📊 C20 LIST\n\nChưa có coin hoặc base % = 0"
-        else:
-            text = "📊 C20 LIST (Capital Ratio)\n\n"
-            for coin, ratio in ratios.items():
-                text += f"{coin} — {ratio:.2f}%\n"
+        if not coins:
+            await update.message.reply_text("📊 C20 trống")
+            return
+
+        api_key = os.getenv("CMC_API_KEY")
+        url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+        headers = {"X-CMC_PRO_API_KEY": api_key}
+        params = {"symbol": ",".join(coins), "convert": "USD"}
+
+        r = requests.get(url, headers=headers, params=params, timeout=20)
+        data = r.json()
+
+        total = 0
+        for coin in coins:
+            try:
+                total += float(data["data"][coin]["quote"]["USD"]["market_cap"])
+            except:
+                pass
+
+        text = (
+            "📊 C20 CAPITAL\n\n"
+            f"Coins: {len(coins)}\n"
+            f"Total Market Cap:\n{total:,.0f} USD"
+        )
 
         keyboard = [
             [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],
@@ -746,21 +764,51 @@ async def add_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def receive_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    coin = update.message.text.strip().upper()
+    try:
+        coin = update.message.text.strip().upper()
+        coins = await asyncio.to_thread(get_c20_list)
 
-    coins = await asyncio.to_thread(get_c20_list)
+        if coin in coins:
+            await update.message.reply_text("⚠️ Coin đã tồn tại.")
+            return ConversationHandler.END
 
-    if coin in coins:
-        await update.message.reply_text("⚠️ Coin đã tồn tại.")
+        # ===== LẤY MARKET CAP HIỆN TẠI =====
+        api_key = os.getenv("CMC_API_KEY")
+        url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+        headers = {"X-CMC_PRO_API_KEY": api_key}
+        params = {"symbol": ",".join(coins + [coin]), "convert": "USD"}
+
+        r = requests.get(url, headers=headers, params=params, timeout=20)
+        data = r.json()
+
+        old_total = 0
+        for c in coins:
+            try:
+                old_total += float(data["data"][c]["quote"]["USD"]["market_cap"])
+            except:
+                pass
+
+        new_cap = float(data["data"][coin]["quote"]["USD"]["market_cap"])
+
+        # ===== TÍNH % TĂNG =====
+        percent_increase = 0
+        if old_total > 0:
+            percent_increase = (new_cap / old_total) * 100
+
+        # ===== GHI COIN =====
+        coins.append(coin)
+        await asyncio.to_thread(write_full_list, coins)
+
+        await update.message.reply_text(
+            f"✅ Đã thêm {coin}\n"
+            f"📈 Vốn danh sách tăng +{percent_increase:.2f}%"
+        )
+
         return ConversationHandler.END
 
-    coins.append(coin)
-    await asyncio.to_thread(write_full_list, coins)
-
-    await update.message.reply_text(f"✅ Đã thêm {coin}")
-
-    return ConversationHandler.END
-
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi thêm coin:\n{e}")
+        return ConversationHandler.END
 
 async def remove_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

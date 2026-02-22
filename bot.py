@@ -1076,26 +1076,17 @@ async def record_daily_market_cap():
 
 async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    print("🚀 Scheduler started")
 
     while True:
         now = datetime.now(tz)
         print("⏰ tick", now.strftime("%H:%M:%S"))
-        # ⏱ Đồng bộ theo phút thật
-        wait = 60 - now.second
-        await asyncio.sleep(wait)
 
-        await record_daily_market_cap()
-async def scheduler_loop():
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+        if now.hour == 12 and now.minute <= 1:
+            await record_daily_market_cap()
 
-    while True:
-        now = datetime.now(tz)
+        await asyncio.sleep(30)
 
-        # tính số giây đến phút kế tiếp
-        wait = 60 - now.second
-        await asyncio.sleep(wait)
-
-        await record_daily_market_cap()
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         sheet = get_sheet()
@@ -1150,7 +1141,34 @@ async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi capital:\n{e}")
+def write_market_cap_if_needed(sheet, total_marketcap):
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    now = datetime.now(tz)
 
+    # chỉ ghi nếu 12h
+    if not (now.hour == 12 and now.minute <= 1):
+        return
+
+    today_str = now.strftime("%Y-%m-%d")
+
+    history = sheet.get("H17:H500")
+    for row in history:
+        if row and today_str in row[0]:
+            return  # đã ghi rồi
+
+    # tìm dòng cuối có dữ liệu
+    col_data = sheet.get("G17:G500")
+    last_filled = 16
+
+    for i, row in enumerate(col_data):
+        if row and row[0]:
+            last_filled = 17 + i
+
+    next_row = last_filled + 1
+
+    sheet.update(f"G{next_row}", [[total_marketcap]])
+    sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
+    
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

@@ -730,18 +730,29 @@ async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = requests.get(url, headers=headers, params=params, timeout=20)
         data = r.json()
 
+        market_caps = {}
         total = 0
+
         for coin in coins:
             try:
-                total += float(data["data"][coin]["quote"]["USD"]["market_cap"])
+                mc = float(data["data"][coin]["quote"]["USD"]["market_cap"])
+                market_caps[coin] = mc
+                total += mc
             except:
                 pass
 
-        text = (
-            "📊 C20 CAPITAL\n\n"
-            f"Coins: {len(coins)}\n"
-            f"Total Market Cap:\n{total:,.0f} USD"
-        )
+        if total == 0:
+            await update.message.reply_text("Không đọc được market cap.")
+            return
+
+        text = "📊 C20 LIST\n\n"
+
+        for coin in coins:
+            mc = market_caps.get(coin, 0)
+            percent = (mc / total) * 100 if total else 0
+            text += f"{coin} — {percent:.2f}%\n"
+
+        text += f"\n💰 Total Market Cap:\n{total:,.0f} USD"
 
         keyboard = [
             [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],

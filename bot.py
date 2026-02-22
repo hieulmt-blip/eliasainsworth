@@ -663,38 +663,45 @@ def get_c20_list():
     values = sheet.get("D17:D100")
     return [row[0].strip().upper() for row in values if row and row[0]]
     
-def get_capital_ratios():
+def update_and_get_capital_ratios():
     sheet = get_sheet()
 
-    # Lấy header row 6 (ticker)
+    # ===== HEADER & BASE =====
     header = sheet.get("A6:T6")[0]
-
-    # Lấy base % row 8
     base_row = sheet.get("A8:T8")[0]
 
-    # Tạo dict ticker -> base %
     base_dict = {}
     for i, coin in enumerate(header):
         if coin and base_row[i]:
             try:
                 base_dict[coin.strip().upper()] = float(base_row[i])
             except:
-                continue
+                pass
 
-    # Lấy list coin đang có
-    coins = get_c20_list()
+    # ===== LIST COIN =====
+    values = sheet.get("D17:D100")
+    coins = [row[0].strip().upper() for row in values if row and row[0]]
 
-    # Tính tổng base %
+    if not coins:
+        return {}
+
     total_base = sum(base_dict.get(c, 0) for c in coins)
 
-    ratios = {}
-
     if total_base == 0:
-        return ratios
+        return {}
 
-    for c in coins:
-        base_val = base_dict.get(c, 0)
-        ratios[c] = round((base_val / total_base) * 100, 2)
+    ratios = {}
+    ratio_rows = []
+
+    for coin in coins:
+        base_val = base_dict.get(coin, 0)
+        ratio = round((base_val / total_base) * 100, 4)
+        ratios[coin] = ratio
+        ratio_rows.append([ratio])
+
+    # ===== CLEAR & UPDATE 1 LẦN =====
+    sheet.update("E17:E100", [[""]] * 84)
+    sheet.update(f"E17:E{16+len(ratio_rows)}", ratio_rows)
 
     return ratios
 
@@ -710,24 +717,28 @@ def write_full_list(coins):
 
 
 async def c20(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ratios = await asyncio.to_thread(get_capital_ratios)
+    try:
+        ratios = await asyncio.to_thread(update_and_get_capital_ratios)
 
-    if not ratios:
-        text = "📊 C20 LIST\n\nChưa có coin nào."
-    else:
-        text = "📊 C20 LIST (Capital Ratio)\n\n"
-        for coin, ratio in ratios.items():
-            text += f"{coin} — {ratio:.2f}%\n"
+        if not ratios:
+            text = "📊 C20 LIST\n\nChưa có coin hoặc base % = 0"
+        else:
+            text = "📊 C20 LIST (Capital Ratio)\n\n"
+            for coin, ratio in ratios.items():
+                text += f"{coin} — {ratio:.2f}%\n"
 
-    keyboard = [
-        [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],
-        [InlineKeyboardButton("➖ Xoá coin", callback_data="remove_coin")]
-    ]
+        keyboard = [
+            [InlineKeyboardButton("➕ Thêm coin", callback_data="add_coin")],
+            [InlineKeyboardButton("➖ Xoá coin", callback_data="remove_coin")]
+        ]
 
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        await update.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi C20:\n{e}")
     
 async def add_coin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

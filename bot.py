@@ -1026,44 +1026,71 @@ async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def record_daily_market_cap():
     try:
         sheet = get_sheet()
-
         tz = ZoneInfo("Asia/Ho_Chi_Minh")
         now = datetime.now(tz)
+
+        current_time = now.time()
         today_str = now.strftime("%Y-%m-%d")
 
-        # ⛔ chưa tới 13:30 thì thoát
-        if now.hour < 13 or (now.hour == 13 and now.minute < 30):
-            return
-
-        # ⛔ nếu hôm nay đã ghi rồi thì thoát
-        existing_dates = sheet.get("H17:H500")
-        for row in existing_dates:
-            if row and today_str in row[0]:
-                return
-
-        # ===== Lấy market cap hiện tại từ U13 =====
         raw = sheet.acell("U13").value
         if not raw:
             return
 
         current_cap = parse_money(raw)
 
-        # ===== Tìm dòng cuối có dữ liệu trong cột G =====
-        col_data = sheet.get("G17:G500")
+        # ===============================
+        # 🔹 1️⃣ GHI MARKET CAP DAY (G + H)
+        # 00:00:01 → 18:00:00
+        # LẦN ĐẦU TIÊN TRONG NGÀY
+        # ===============================
+        if (
+            current_time.hour < 18 and
+            (current_time.hour > 0 or current_time.minute > 0)
+        ):
+            existing_dates = sheet.get("H17:H500")
 
-        last_row = 16  # mặc định trước G17
+            already_recorded = False
+            for row in existing_dates:
+                if row and today_str in row[0]:
+                    already_recorded = True
+                    break
 
-        for i, row in enumerate(col_data):
-            if row and row[0]:
-                last_row = 17 + i
+            if not already_recorded:
+                col_data = sheet.get("G17:G500")
+                last_row = 16
 
-        next_row = last_row + 1
+                for i, row in enumerate(col_data):
+                    if row and row[0]:
+                        last_row = 17 + i
 
-        # ===== Ghi vào G và H =====
-        sheet.update(f"G{next_row}", [[current_cap]])
-        sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 13:30")]])
+                next_row = last_row + 1
 
-        print(f"✅ Recorded market cap at G{next_row}")
+                sheet.update(f"G{next_row}", [[current_cap]])
+                sheet.update(f"H{next_row}", [[today_str]])
+
+                print(f"✅ DAY recorded at G{next_row}")
+
+        # ===============================
+        # 🔹 2️⃣ GHI MARKET CAP CLOSE (I)
+        # 23:00:00 → 23:59:59
+        # GHI 1 LẦN DUY NHẤT
+        # ===============================
+        if current_time.hour == 23:
+
+            col_data = sheet.get("H17:H500")
+            target_row = None
+
+            for i, row in enumerate(col_data):
+                if row and today_str in row[0]:
+                    target_row = 17 + i
+                    break
+
+            if target_row:
+                close_cell = sheet.acell(f"I{target_row}").value
+
+                if not close_cell:
+                    sheet.update(f"I{target_row}", [[current_cap]])
+                    print(f"🌙 CLOSE recorded at I{target_row}")
 
     except Exception as e:
         print("❌ record error:", e)

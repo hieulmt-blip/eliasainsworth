@@ -772,23 +772,30 @@ async def receive_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Coin đã tồn tại.")
             return ConversationHandler.END
 
-        # ===== LẤY MARKET CAP HIỆN TẠI =====
+        # ===== LẤY MARKET CAP =====
         api_key = os.getenv("CMC_API_KEY")
         url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
         headers = {"X-CMC_PRO_API_KEY": api_key}
-        params = {"symbol": ",".join(coins + [coin]), "convert": "USD"}
 
-        r = requests.get(url, headers=headers, params=params, timeout=20)
-        data = r.json()
-
+        # Lấy cap danh sách cũ
         old_total = 0
-        for c in coins:
-            try:
-                old_total += float(data["data"][c]["quote"]["USD"]["market_cap"])
-            except:
-                pass
+        if coins:
+            params_old = {"symbol": ",".join(coins), "convert": "USD"}
+            r_old = requests.get(url, headers=headers, params=params_old, timeout=20)
+            data_old = r_old.json()
 
-        new_cap = float(data["data"][coin]["quote"]["USD"]["market_cap"])
+            for c in coins:
+                try:
+                    old_total += float(data_old["data"][c]["quote"]["USD"]["market_cap"])
+                except:
+                    pass
+
+        # Lấy cap coin mới
+        params_new = {"symbol": coin, "convert": "USD"}
+        r_new = requests.get(url, headers=headers, params=params_new, timeout=20)
+        data_new = r_new.json()
+
+        new_cap = float(data_new["data"][coin]["quote"]["USD"]["market_cap"])
 
         # ===== TÍNH % TĂNG =====
         percent_increase = 0
@@ -798,6 +805,9 @@ async def receive_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ===== GHI COIN =====
         coins.append(coin)
         await asyncio.to_thread(write_full_list, coins)
+
+        # ===== UPDATE RATIO NHƯ CŨ =====
+        await asyncio.to_thread(update_and_get_capital_ratios)
 
         await update.message.reply_text(
             f"✅ Đã thêm {coin}\n"

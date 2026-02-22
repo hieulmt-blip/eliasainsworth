@@ -1066,7 +1066,61 @@ async def scheduler_loop():
         await asyncio.sleep(wait)
 
         await record_daily_market_cap()
-        
+async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        sheet = get_sheet()
+        tz = ZoneInfo("Asia/Ho_Chi_Minh")
+        now = datetime.now(tz)
+
+        # ===== C = Current (U13)
+        current_raw = sheet.acell("U13").value
+        C = parse_money(current_raw)
+
+        # ===== Tìm ngày 20 gần nhất
+        history = sheet.get("G17:H500")
+
+        X = None
+        anchor_date = None
+
+        for row in history:
+            if len(row) < 2:
+                continue
+            try:
+                cap = parse_money(row[0])
+                d = datetime.strptime(row[1], "%Y-%m-%d %H:%M")
+            except:
+                continue
+
+            if d.day == 20 and d < now:
+                if anchor_date is None or d > anchor_date:
+                    anchor_date = d
+                    X = cap
+
+        # ===== Nếu không có ngày 20 => lấy base A17
+        if X is None:
+            base_raw = sheet.acell("A17").value
+            X = parse_money(base_raw)
+            anchor_label = "BASE (A17)"
+        else:
+            anchor_label = anchor_date.strftime("%d/%m/%Y")
+
+        # ===== % = (C - X) / X
+        percent = (C - X) / X * 100
+
+        msg = (
+            f"📊 CAPITAL\n\n"
+            f"C (Current): {C:,.0f}\n"
+            f"X (Anchor): {X:,.0f}\n"
+            f"Anchor used: {anchor_label}\n\n"
+            f"% = (C - X) / X\n"
+            f"= {percent:+.2f}%"
+        )
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi capital:\n{e}")
+
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -1098,7 +1152,7 @@ conv_handler = ConversationHandler(
     fallbacks=[],
 )
 tg_app.add_handler(conv_handler)
-
+tg_app.add_handler(CommandHandler("capital", capital))
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

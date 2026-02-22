@@ -1220,7 +1220,7 @@ def calculate_bdinx():
         if len(row) < 2 or not row[1]:
             continue
 
-        nav = parse_money(row[1])
+        nav = float(str(row[1]).replace(",", "."))
 
         net_flow = 0
         if len(row) >= 3 and row[2]:

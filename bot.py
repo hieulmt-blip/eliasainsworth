@@ -1184,7 +1184,80 @@ def write_market_cap_if_needed(sheet, total_marketcap):
 
     sheet.update(f"G{next_row}", [[total_marketcap]])
     sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
-    
+# ================== BDINX LOGIC ==================
+
+def calculate_bdinx():
+    sheet = get_sheet()
+
+    # Lấy toàn bộ bảng BDINX
+    rows = sheet.get("K18:O500")  
+    # K = Date
+    # L = NAV
+    # M = Net Flow
+    # N = Daily Return
+    # O = BDINX
+
+    if not rows or len(rows) < 2:
+        raise Exception("Chưa đủ dữ liệu BDINX")
+
+    last_index = 1000
+    results = []
+
+    for i in range(len(rows)):
+        row = rows[i]
+
+        if len(row) < 2:
+            continue
+
+        try:
+            nav = parse_money(row[1])
+        except:
+            continue
+
+        net_flow = 0
+        if len(row) >= 3 and row[2]:
+            try:
+                net_flow = parse_money(row[2])
+            except:
+                net_flow = 0
+
+        # dòng đầu → set base
+        if i == 0:
+            sheet.update(f"O{18+i}", [[1000]])
+            last_index = 1000
+            continue
+
+        # lấy NAV hôm trước
+        prev_nav = parse_money(rows[i-1][1])
+
+        if prev_nav == 0:
+            continue
+
+        daily_return = (nav - net_flow) / prev_nav - 1
+        last_index = last_index * (1 + daily_return)
+
+        # update Daily Return & BDINX
+        sheet.update(f"N{18+i}", [[round(daily_return, 6)]])
+        sheet.update(f"O{18+i}", [[round(last_index, 4)]])
+
+        results.append((daily_return, last_index))
+
+    return last_index
+async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.reply_text("⏳ Đang tính BDINX...")
+
+        value = await asyncio.to_thread(calculate_bdinx)
+
+        await update.message.reply_text(
+            f"🐉 BLACK DRAGON INDEX\n\n"
+            f"BDINX: {value:.4f}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi BDINX:\n{e}")
+
+
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -1217,6 +1290,7 @@ conv_handler = ConversationHandler(
 )
 tg_app.add_handler(conv_handler)
 tg_app.add_handler(CommandHandler("capital", capital))
+tg_app.add_handler(CommandHandler("bdinx", bdinx))
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

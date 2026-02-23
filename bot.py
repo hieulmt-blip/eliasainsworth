@@ -1312,7 +1312,7 @@ def update_today_nav_index():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     now = datetime.now(tz)
 
-    today = now.strftime("%Y-%m-%d")
+    timestamp = now.strftime("%Y-%m-%d %H:%M")
 
     dates = sheet.get("K17:K500")
 
@@ -1335,7 +1335,7 @@ def update_today_nav_index():
     # Nếu hôm nay là ngày mới → tạo dòng mới
     new_row = last_row + 1
 
-    sheet.update(f"K{new_row}", [[today]])
+    sheet.update(f"K{new_row}", [[timestamp]])
     sheet.update(f"L{new_row}", [[nav]])
     sheet.update(f"M{new_row}", [[0]])
 

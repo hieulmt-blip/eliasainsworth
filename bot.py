@@ -1111,15 +1111,17 @@ async def scheduler_loop():
     while True:
         now = datetime.now(tz)
 
-        if now.minute % 5 == 0 and now.second < 8:
-            try:
-                nav, row = await asyncio.to_thread(update_today_nav_index)
-                await asyncio.to_thread(calculate_bdinx)
-                print(f"✅ BDINX updated row {row}: NAV={nav}")
-            except Exception as e:
-                print("❌ BDINX auto error:", e)
+        # Tính thời gian còn lại tới mốc 5 phút tiếp theo
+        wait_seconds = 300 - (now.minute % 5) * 60 - now.second
 
-        await asyncio.sleep(10)
+        await asyncio.sleep(wait_seconds)
+
+        try:
+            nav, row = await asyncio.to_thread(update_today_nav_index)
+            await asyncio.to_thread(calculate_bdinx)
+            print(f"✅ BDINX updated row {row}: NAV={nav}")
+        except Exception as e:
+            print("❌ BDINX auto error:", e)
 
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

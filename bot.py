@@ -1312,11 +1312,10 @@ def update_today_nav_index():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     now = datetime.now(tz)
 
-    timestamp = now.strftime("%Y-%m-%d %H:%M")
+    today_str = now.strftime("%Y-%m-%d")
 
     dates = sheet.get("K17:K500")
 
-    # Lấy ngày cuối cùng đang có trong sheet
     last_row = 16
     last_date = None
 
@@ -1327,15 +1326,28 @@ def update_today_nav_index():
 
     nav = get_total_nav_index()
 
-    # Nếu hôm nay đã tồn tại → chỉ update NAV
-    if last_date == today:
+    # ===============================
+    # Nếu chưa có dòng nào → tạo dòng đầu tiên
+    # ===============================
+    if not last_date:
+        new_row = 17
+        sheet.update(f"K{new_row}", [[today_str]])
+        sheet.update(f"L{new_row}", [[nav]])
+        sheet.update(f"M{new_row}", [[0]])
+        return nav, new_row
+
+    # ===============================
+    # Nếu vẫn là cùng ngày → update NAV
+    # ===============================
+    if last_date == today_str:
         sheet.update(f"L{last_row}", [[nav]])
         return nav, last_row
 
-    # Nếu hôm nay là ngày mới → tạo dòng mới
+    # ===============================
+    # Nếu sang ngày mới (00:00)
+    # ===============================
     new_row = last_row + 1
-
-    sheet.update(f"K{new_row}", [[timestamp]])
+    sheet.update(f"K{new_row}", [[today_str]])
     sheet.update(f"L{new_row}", [[nav]])
     sheet.update(f"M{new_row}", [[0]])
 

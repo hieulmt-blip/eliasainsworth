@@ -1328,46 +1328,34 @@ def get_total_nav_index():
 def update_today_nav_index():
     sheet = get_sheet()
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    now = datetime.now(tz)
+    today_str = datetime.now(tz).strftime("%Y-%m-%d")
 
-    today_str = now.strftime("%Y-%m-%d")
+    rows = sheet.get("K17:K500")
 
-    dates = sheet.get("K17:K500")
+    today_row = None
+    last_filled = 16
 
-    last_row = 16
-    last_date = None
-
-    for i, row in enumerate(dates):
+    for i, row in enumerate(rows):
         if row and row[0]:
-            last_row = 17 + i
-            last_date = row[0]
+            last_filled = 17 + i
+            if row[0] == today_str:
+                today_row = 17 + i
 
     nav = get_total_nav_index()
 
-    # ===============================
-    # Nếu chưa có dòng nào → tạo dòng đầu tiên
-    # ===============================
-    if not last_date:
-        new_row = 17
-        sheet.update(f"K{new_row}", [[today_str]])
-        sheet.update(f"L{new_row}", [[nav]])
-        sheet.update(f"M{new_row}", [[0]])
-        return nav, new_row
+    # ===== Nếu đã có dòng hôm nay → chỉ update L =====
+    if today_row:
+        sheet.update(f"L{today_row}", [[nav]])
+        return nav, today_row
 
-    # ===============================
-    # Nếu vẫn là cùng ngày → update NAV
-    # ===============================
-    if last_date == today_str:
-        sheet.update(f"L{last_row}", [[nav]])
-        return nav, last_row
-
-    # ===============================
-    # Nếu sang ngày mới (00:00)
-    # ===============================
-    new_row = last_row + 1
+    # ===== Nếu chưa có → tạo dòng mới =====
+    new_row = last_filled + 1
     sheet.update(f"K{new_row}", [[today_str]])
     sheet.update(f"L{new_row}", [[nav]])
-    sheet.update(f"M{new_row}", [[0]])
+
+    # ❌ KHÔNG ĐỤNG O P
+    # ❌ KHÔNG ĐỤNG M
+    # Sheet tự có formula thì nó tự tính
 
     return nav, new_row
 async def trans(update: Update, context: ContextTypes.DEFAULT_TYPE):

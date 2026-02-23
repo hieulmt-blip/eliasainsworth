@@ -59,6 +59,7 @@ getcontext().prec = 50  # tăng precision lớn
 
 ADD_COIN = 1
 REMOVE_COIN = 2
+TRANS_INPUT = 99
 def fmt(x):
     d = Decimal(str(x))
     return format(d.normalize(), 'f').rstrip('0').rstrip('.')
@@ -1352,6 +1353,85 @@ def update_today_nav_index():
     sheet.update(f"M{new_row}", [[0]])
 
     return nav, new_row
+async def trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Nhập giao dịch:\n"
+        "+ 10 2026-02-24\n"
+        "- 5 2026-02-24"
+    )
+    return TRANS_INPUT
+async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        text = update.message.text.strip()
+        parts = text.split()
+
+        if len(parts) != 3:
+            await update.message.reply_text("Sai cú pháp.")
+            return ConversationHandler.END
+
+        sign, amount_str, date_str = parts
+
+        if sign not in ["+", "-"]:
+            await update.message.reply_text("Chỉ dùng + hoặc -")
+            return ConversationHandler.END
+
+        amount = float(amount_str)
+
+        sheet = get_sheet()
+        rows = sheet.get("K17:Q500")
+
+        target_row = None
+
+        for i, row in enumerate(rows):
+            if row and row[0] == date_str:
+                target_row = 17 + i
+                break
+
+        # Nếu chưa có dòng ngày đó → tạo mới
+        if not target_row:
+            last_row = 16
+            for i, row in enumerate(rows):
+                if row and row[0]:
+                    last_row = 17 + i
+
+            target_row = last_row + 1
+            sheet.update(f"K{target_row}", [[date_str]])
+            sheet.update(f"L{target_row}", [[0]])
+            sheet.update(f"M{target_row}", [[0]])
+            sheet.update(f"O{target_row}", [[0]])
+            sheet.update(f"P{target_row}", [[0]])
+
+        # ===== LẤY GIÁ TRỊ CŨ =====
+        deposit_cell = sheet.acell(f"O{target_row}").value
+        withdraw_cell = sheet.acell(f"P{target_row}").value
+
+        deposit = float(deposit_cell) if deposit_cell else 0
+        withdraw = float(withdraw_cell) if withdraw_cell else 0
+
+        # ===== CỘNG DỒN =====
+        if sign == "+":
+            deposit += amount
+            sheet.update(f"O{target_row}", [[deposit]])
+        else:
+            withdraw += amount
+            sheet.update(f"P{target_row}", [[withdraw]])
+
+        # ===== UPDATE NET FLOW =====
+        net_flow = deposit - withdraw
+        sheet.update(f"M{target_row}", [[net_flow]])
+
+        await update.message.reply_text(
+            f"✅ Đã ghi giao dịch {date_str}\n"
+            f"Deposit: {deposit}\n"
+            f"Withdraw: {withdraw}\n"
+            f"Net flow: {net_flow}"
+        )
+
+        return ConversationHandler.END
+
+    except Exception as e:
+        await update.message.reply_text(f"Lỗi trans: {e}")
+        return ConversationHandler.END
     
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
@@ -1386,6 +1466,10 @@ conv_handler = ConversationHandler(
 tg_app.add_handler(conv_handler)
 tg_app.add_handler(CommandHandler("capital", capital))
 tg_app.add_handler(CommandHandler("bdinx", bdinx))
+TRANS_INPUT: [
+    MessageHandler(filters.TEXT & ~filters.COMMAND, receive_trans)
+]
+CommandHandler("trans", trans)
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

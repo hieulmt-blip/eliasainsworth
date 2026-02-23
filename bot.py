@@ -561,7 +561,7 @@ def calculate_c20():
     sheet = get_sheet()
 
     # ===== LẤY COIN Ở ROW 6 =====
-    header = sheet.get("A6:T6")[0]
+    header = sheet.get("A6:V6")[0]
 
     coins = []
     for c in header:

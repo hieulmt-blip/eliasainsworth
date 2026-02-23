@@ -1279,21 +1279,19 @@ async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def get_total_nav_index():
     combined = {}
 
-    account = exchange_index.private_get_account_balance()
-    for acc in account.get("data", []):
-        for detail in acc.get("details", []):
-            coin = detail.get("ccy")
-            eq = float(detail.get("eq", 0))
-            if eq > 0:
-                combined[coin] = combined.get(coin, 0) + eq
+    # ===== SPOT =====
+    spot = exchange_index.fetch_balance({"type": "spot"})
+    for coin, amount in spot["total"].items():
+        if amount and amount > 0:
+            combined[coin] = combined.get(coin, 0) + amount
 
-    funding = exchange_index.private_get_asset_balances()
-    for item in funding.get("data", []):
-        coin = item.get("ccy")
-        bal = float(item.get("bal", 0))
-        if bal > 0:
-            combined[coin] = combined.get(coin, 0) + bal
+    # ===== FUNDING =====
+    funding = exchange_index.fetch_balance({"type": "funding"})
+    for coin, amount in funding["total"].items():
+        if amount and amount > 0:
+            combined[coin] = combined.get(coin, 0) + amount
 
+    # ===== EARN =====
     try:
         earn = exchange_index.private_get_finance_savings_balance()
         for item in earn.get("data", []):
@@ -1304,6 +1302,7 @@ def get_total_nav_index():
     except:
         pass
 
+    # ===== QUY ĐỔI USDT =====
     total = 0
 
     for coin, amount in combined.items():

@@ -1109,22 +1109,27 @@ async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     print("🚀 BDINX Scheduler started")
 
+    last_minute = None
+
     while True:
         now = datetime.now(tz)
 
-        # Đợi tới phút chia hết cho 5 và giây = 0
-        if now.minute % 5 == 0 and now.second == 0:
-            try:
-                nav, row = await asyncio.to_thread(update_today_nav_index)
-                await asyncio.to_thread(calculate_bdinx)
-                print(f"✅ BDINX updated row {row}: NAV={nav}")
-            except Exception as e:
-                print("❌ BDINX auto error:", e)
+        # Nếu phút chia hết cho 5
+        if now.minute % 5 == 0:
+            # Tránh chạy lặp trong cùng 1 phút
+            if last_minute != now.minute:
+                try:
+                    nav, row = await asyncio.to_thread(update_today_nav_index)
+                    await asyncio.to_thread(calculate_bdinx)
 
-            await asyncio.sleep(1)
+                    print(f"✅ {now.strftime('%H:%M:%S')} BDINX updated | NAV={nav}")
 
-        else:
-            await asyncio.sleep(1)
+                except Exception as e:
+                    print("❌ BDINX auto error:", e)
+
+                last_minute = now.minute
+
+        await asyncio.sleep(1)
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         sheet = get_sheet()

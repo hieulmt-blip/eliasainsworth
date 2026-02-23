@@ -1447,10 +1447,9 @@ tg_app.add_handler(CommandHandler("buy", buy))
 tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("c20inx", c20inx))
 tg_app.add_handler(CommandHandler("scale", scale))
-tg_app.add_handler(conv_handler)
 tg_app.add_handler(CommandHandler("capital", capital))
 tg_app.add_handler(CommandHandler("bdinx", bdinx))
-tg_app.add_handler(conv_handler)
+
 conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(add_coin_button, pattern="add_coin"),
@@ -1470,6 +1469,7 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
+tg_app.add_handler(conv_handler)
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

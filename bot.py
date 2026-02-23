@@ -1210,46 +1210,58 @@ def write_market_cap_if_needed(sheet, total_marketcap):
 
 def calculate_bdinx():
     sheet = get_sheet()
-    rows = sheet.get("K17:O500")
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    today_str = datetime.now(tz).strftime("%Y-%m-%d")
 
-    if not rows:
-        raise Exception("Chưa có dữ liệu BDINX")
+    rows = sheet.get("K17:Q500")
 
-    last_index = 1000
+    today_row_number = None
+    prev_row_number = None
 
-    for i in range(len(rows)):
+    # ===== TÌM DÒNG HÔM NAY =====
+    for i, row in enumerate(rows):
+        if row and row[0] == today_str:
+            today_row_number = 17 + i
+            break
+
+    if not today_row_number:
+        raise Exception("Không tìm thấy dòng hôm nay")
+
+    # ===== UPDATE NAV (CỘT L) =====
+    nav_today = get_total_nav_index()
+    sheet.update(f"L{today_row_number}", [[nav_today]])
+
+    # ===== TÌM DÒNG TRƯỚC =====
+    for i in reversed(range(len(rows))):
         row = rows[i]
-
-        if len(row) < 2 or not row[1]:
+        if not row or not row[0]:
             continue
 
-        nav = parse_money(row[1])
+        if row[0] < today_str:
+            prev_row_number = 17 + i
+            break
 
-        net_flow = 0
-        if len(row) >= 3 and row[2]:
-            net_flow = parse_money(row[2])
+    # ===== BASE CASE =====
+    if not prev_row_number:
+        sheet.update(f"Q{today_row_number}", [[1000]])
+        return 1000
 
-        row_number = 17 + i
+    prev_index_cell = sheet.acell(f"Q{prev_row_number}").value
+    prev_index = float(prev_index_cell) if prev_index_cell else 1000
 
-        # ===== BASE =====
-        if i == 0:
-            sheet.update(f"N{row_number}", [[0]])
-            sheet.update(f"O{row_number}", [[1000]])
-            last_index = 1000
-            continue
+    # ===== ĐỢI SHEET TÍNH DAILY RETURN =====
+    daily_return_cell = sheet.acell(f"N{today_row_number}").value
+    if not daily_return_cell:
+        raise Exception("Daily Return chưa được sheet tính")
 
-        prev_nav = parse_money(rows[i-1][1])
+    daily_return = float(daily_return_cell)
 
-        if prev_nav == 0:
-            continue
+    today_index = prev_index * (1 + daily_return)
 
-        daily_return = (nav - net_flow) / prev_nav - 1
-        last_index = last_index * (1 + daily_return)
+    # ===== UPDATE Q =====
+    sheet.update(f"Q{today_row_number}", [[round(today_index, 4)]])
 
-        sheet.update(f"N{row_number}", [[round(daily_return, 6)]])
-        sheet.update(f"O{row_number}", [[round(last_index, 4)]])
-
-    return last_index
+    return round(today_index, 4)
     
 async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

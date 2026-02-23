@@ -1112,18 +1112,19 @@ async def scheduler_loop():
     while True:
         now = datetime.now(tz)
 
-        # Tính thời gian còn lại tới mốc 5 phút tiếp theo
-        wait_seconds = 300 - (now.minute % 5) * 60 - now.second
+        # Đợi tới phút chia hết cho 5 và giây = 0
+        if now.minute % 5 == 0 and now.second == 0:
+            try:
+                nav, row = await asyncio.to_thread(update_today_nav_index)
+                await asyncio.to_thread(calculate_bdinx)
+                print(f"✅ BDINX updated row {row}: NAV={nav}")
+            except Exception as e:
+                print("❌ BDINX auto error:", e)
 
-        await asyncio.sleep(wait_seconds)
+            await asyncio.sleep(1)
 
-        try:
-            nav, row = await asyncio.to_thread(update_today_nav_index)
-            await asyncio.to_thread(calculate_bdinx)
-            print(f"✅ BDINX updated row {row}: NAV={nav}")
-        except Exception as e:
-            print("❌ BDINX auto error:", e)
-
+        else:
+            await asyncio.sleep(1)
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         sheet = get_sheet()
@@ -1418,8 +1419,6 @@ async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ===== UPDATE NET FLOW =====
         net_flow = deposit - withdraw
-        sheet.update(f"M{target_row}", [[net_flow]])
-
         await update.message.reply_text(
             f"✅ Đã ghi giao dịch {date_str}\n"
             f"Deposit: {deposit}\n"
@@ -1466,10 +1465,25 @@ conv_handler = ConversationHandler(
 tg_app.add_handler(conv_handler)
 tg_app.add_handler(CommandHandler("capital", capital))
 tg_app.add_handler(CommandHandler("bdinx", bdinx))
-TRANS_INPUT: [
-    MessageHandler(filters.TEXT & ~filters.COMMAND, receive_trans)
-]
-CommandHandler("trans", trans)
+conv_handler = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(add_coin_button, pattern="add_coin"),
+        CallbackQueryHandler(remove_coin_button, pattern="remove_coin"),
+        CommandHandler("trans", trans),   # 👈 thêm vào đây
+    ],
+    states={
+        ADD_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_coin)
+        ],
+        REMOVE_COIN: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_remove_coin)
+        ],
+        TRANS_INPUT: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_trans)
+        ],
+    },
+    fallbacks=[],
+)
 # ===== FASTAPI WEBHOOK =====
 
 fastapi_app = FastAPI()

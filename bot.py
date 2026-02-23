@@ -1447,24 +1447,10 @@ tg_app.add_handler(CommandHandler("buy", buy))
 tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("c20inx", c20inx))
 tg_app.add_handler(CommandHandler("scale", scale))
-conv_handler = ConversationHandler(
-    entry_points=[
-        CallbackQueryHandler(add_coin_button, pattern="add_coin"),
-        CallbackQueryHandler(remove_coin_button, pattern="remove_coin"),
-    ],
-    states={
-        ADD_COIN: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_coin)
-        ],
-        REMOVE_COIN: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_remove_coin)
-        ],
-    },
-    fallbacks=[],
-)
 tg_app.add_handler(conv_handler)
 tg_app.add_handler(CommandHandler("capital", capital))
 tg_app.add_handler(CommandHandler("bdinx", bdinx))
+tg_app.add_handler(conv_handler)
 conv_handler = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(add_coin_button, pattern="add_coin"),

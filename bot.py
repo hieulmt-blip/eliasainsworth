@@ -654,15 +654,24 @@ async def c20inx(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         index, point, percent, count = await asyncio.to_thread(calculate_c20)
 
-        emoji = "🟢" if point >= 0 else "🔴"
-        arrow = "▲" if point >= 0 else "▼"
+# So với mốc đầu ngày (A23)
+emoji_day = "🟢" if point >= 0 else "🔴"
+arrow_day = "▲" if point >= 0 else "▼"
 
-        await update.message.reply_text(
-            f"📊 C20INDEX\n\n"
-            f"Value: {index}\n"
-            f"{emoji} {arrow} {point:+.4f} pts ({percent:+.2f}%)\n"
-            f"Coins used: {count}"
-        )
+# 🔥 So với base 1000
+base_point = index - 1000
+base_percent = ((index - 1000) / 1000) * 100
+
+emoji_base = "🟢" if base_point >= 0 else "🔴"
+arrow_base = "▲" if base_point >= 0 else "▼"
+
+await update.message.reply_text(
+    f"📊 C20INDEX\n\n"
+    f"Value: {index}\n\n"
+    f"📅 Day: {emoji_day} {arrow_day} {point:+.4f} pts ({percent:+.2f}%)\n"
+    f"🏁 Base: {emoji_base} {arrow_base} {base_point:+.4f} pts ({base_percent:+.2f}%)\n\n"
+    f"Coins used: {count}"
+)
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi C20INDEX:\n{e}")

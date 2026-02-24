@@ -1442,6 +1442,8 @@ async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def marketcap_history_loop():
     print("📊 MarketCap Time-Series Logger started")
 
+    last_logged_time = None
+
     while True:
         try:
             sheet = get_sheet()
@@ -1451,18 +1453,25 @@ async def marketcap_history_loop():
                 await asyncio.sleep(5)
                 continue
 
-            try:
-                a1_time = datetime.strptime(a1_raw.strip(), "%Y-%m-%d %H:%M:%S")
-            except:
-                print("A1 format error:", a1_raw)
+            # ===== BẮT DATETIME BẰNG REGEX (CHỊU MỌI FORMAT) =====
+            match = re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", str(a1_raw))
+            if not match:
                 await asyncio.sleep(5)
                 continue
+
+            dt_str = match.group()
+            a1_time = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
 
             minute = a1_time.minute
             hour = a1_time.hour
 
-            # 🔥 chỉ cần đúng mốc phút chia hết 5
+            # ===== CHỈ GHI KHI PHÚT CHIA HẾT 5 =====
             if minute % 5 != 0:
+                await asyncio.sleep(5)
+                continue
+
+            # ===== TRÁNH LOG TRÙNG =====
+            if last_logged_time == dt_str:
                 await asyncio.sleep(5)
                 continue
 
@@ -1473,29 +1482,27 @@ async def marketcap_history_loop():
 
             total_marketcap = parse_money(raw_cap)
 
+            # ===== TÌM DÒNG CUỐI =====
             col_data = sheet.get("S17:S500")
 
             last_row = 16
-            last_logged_time = None
-
             for i, row in enumerate(col_data):
                 if row and row[0]:
                     last_row = 17 + i
-                    last_logged_time = row[0]
-
-            if last_logged_time == a1_raw:
-                await asyncio.sleep(5)
-                continue
 
             new_row = last_row + 1
 
-            sheet.update(f"S{new_row}", [[a1_raw]])
+            # ===== GHI =====
+            sheet.update(f"S{new_row}", [[dt_str]])
             sheet.update(f"T{new_row}", [[total_marketcap]])
 
+            # CLOSE 23:55
             if hour == 23 and minute == 55:
                 sheet.update(f"U{new_row}", [[total_marketcap]])
 
-            print(f"🟢 Logged {a1_raw}")
+            last_logged_time = dt_str
+
+            print(f"🟢 Logged {dt_str}")
 
         except Exception as e:
             print("❌ MarketCap log error:", e)

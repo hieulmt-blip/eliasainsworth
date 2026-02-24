@@ -1446,7 +1446,6 @@ async def marketcap_history_loop():
         try:
             sheet = get_sheet()
 
-            # ===== READ A1 =====
             a1_raw = sheet.acell("A1").value
             if not a1_raw:
                 await asyncio.sleep(5)
@@ -1455,19 +1454,18 @@ async def marketcap_history_loop():
             try:
                 a1_time = datetime.strptime(a1_raw.strip(), "%Y-%m-%d %H:%M:%S")
             except:
+                print("A1 format error:", a1_raw)
                 await asyncio.sleep(5)
                 continue
 
             minute = a1_time.minute
-            second = a1_time.second
             hour = a1_time.hour
 
-            # ===== ONLY RUN AT 5-MIN MARKS =====
-            if not (minute % 5 == 0 and second == 0):
+            # 🔥 chỉ cần đúng mốc phút chia hết 5
+            if minute % 5 != 0:
                 await asyncio.sleep(5)
                 continue
 
-            # ===== GET MARKET CAP =====
             raw_cap = sheet.acell("W13").value
             if not raw_cap:
                 await asyncio.sleep(5)
@@ -1475,8 +1473,6 @@ async def marketcap_history_loop():
 
             total_marketcap = parse_money(raw_cap)
 
-            # ===== CHECK LAST LOG TO AVOID DUP =====
-            last_time = sheet.acell("S500").value  # đọc dòng cuối
             col_data = sheet.get("S17:S500")
 
             last_row = 16
@@ -1487,18 +1483,15 @@ async def marketcap_history_loop():
                     last_row = 17 + i
                     last_logged_time = row[0]
 
-            # Nếu đã log mốc này rồi → skip
             if last_logged_time == a1_raw:
                 await asyncio.sleep(5)
                 continue
 
             new_row = last_row + 1
 
-            # ===== WRITE NEW ROW =====
             sheet.update(f"S{new_row}", [[a1_raw]])
             sheet.update(f"T{new_row}", [[total_marketcap]])
 
-            # ===== CLOSE AT 23:55 =====
             if hour == 23 and minute == 55:
                 sheet.update(f"U{new_row}", [[total_marketcap]])
 
@@ -1556,7 +1549,6 @@ async def startup():
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    asyncio.create_task(scheduler_loop())
     asyncio.create_task(scheduler_loop())           # BDINX
     asyncio.create_task(marketcap_history_loop())  # 🔥 thêm dòng này
     print("✅ Webhook set & bot ready")

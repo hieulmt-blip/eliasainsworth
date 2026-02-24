@@ -1440,29 +1440,40 @@ async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Lỗi trans: {e}")
         return ConversationHandler.END
 async def marketcap_history_loop():
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
     print("📊 MarketCap History Scheduler started")
 
     while True:
         try:
             sheet = get_sheet()
-            now = datetime.now(tz)
-            today_str = now.strftime("%Y-%m-%d")
 
             # ===============================
-            # 🔹 LẤY MARKET CAP TỪ W13 (SUM)
+            # 🔹 ĐỌC A1
             # ===============================
-            raw = sheet.acell("W13").value
-            if not raw:
-                await asyncio.sleep(300)
+            a1_raw = sheet.acell("A1").value
+            if not a1_raw:
+                await asyncio.sleep(5)
                 continue
 
-            total_marketcap = parse_money(raw)
+            try:
+                a1_time = datetime.strptime(a1_raw.strip(), "%Y-%m-%d %H:%M:%S")
+            except:
+                await asyncio.sleep(5)
+                continue
+
+            minute = a1_time.minute
+            second = a1_time.second
+            hour = a1_time.hour
+            today_str = a1_time.strftime("%Y-%m-%d")
 
             # ===============================
-            # 🔹 TIME FORMAT
+            # 🔹 LẤY MARKET CAP W13
             # ===============================
-            time_str = now.strftime("%Y-%m-%d %H:%M")
+            raw_cap = sheet.acell("W13").value
+            if not raw_cap:
+                await asyncio.sleep(5)
+                continue
+
+            total_marketcap = parse_money(raw_cap)
 
             rows = sheet.get("S17:U500")
 
@@ -1475,43 +1486,49 @@ async def marketcap_history_loop():
                     if row[0].startswith(today_str):
                         today_row = 17 + i
 
-            # ===============================
-            # 🔹 NẾU CHƯA CÓ DÒNG HÔM NAY → TẠO MỚI
-            # ===============================
             if not today_row:
                 today_row = last_filled + 1
-                sheet.update(f"S{today_row}", [[time_str]])
 
-            # ===============================
-            # 🔹 OPEN LOGIC
-            # Nếu chưa có Open:
-            # - Sau 00:05
-            # - Hoặc bot restart sau 00:05
-            # ===============================
+            # ==================================================
+            # 🟢 INTRADAY LOGIC
+            # ==================================================
             open_cell = sheet.acell(f"T{today_row}").value
 
-            if not open_cell:
-                if now.hour > 0 or (now.hour == 0 and now.minute >= 5):
+            should_log_intraday = False
+
+            # Case 1: đúng mốc 5 phút
+            if minute % 5 == 0 and second == 0:
+                should_log_intraday = True
+
+            # Case 2: đã qua 00:05 mà T chưa có dữ liệu
+            if (
+                hour == 0
+                and minute > 5
+                and not open_cell
+            ):
+                should_log_intraday = True
+
+            if should_log_intraday:
+                last_time = sheet.acell(f"S{today_row}").value
+
+                if last_time != a1_raw:
+                    sheet.update(f"S{today_row}", [[a1_raw]])
                     sheet.update(f"T{today_row}", [[total_marketcap]])
-                    print("🟢 OPEN logged")
+                    print(f"🟢 Logged {a1_raw}")
 
-            # ===============================
-            # 🔹 CLOSE LOGIC
-            # Nếu chưa có Close:
-            # - Sau 23:55
-            # - Hoặc bot restart sau 23:55
-            # ===============================
-            close_cell = sheet.acell(f"U{today_row}").value
-
-            if not close_cell:
-                if now.hour > 23 or (now.hour == 23 and now.minute >= 55):
+            # ==================================================
+            # 🔴 CLOSE 23:55:00
+            # ==================================================
+            if hour == 23 and minute == 55 and second == 0:
+                close_cell = sheet.acell(f"U{today_row}").value
+                if not close_cell:
                     sheet.update(f"U{today_row}", [[total_marketcap]])
-                    print("🔴 CLOSE logged")
+                    print("🔴 Close logged")
 
         except Exception as e:
             print("❌ MarketCap history error:", e)
 
-        await asyncio.sleep(300)  # chạy mỗi 5 phút
+        await asyncio.sleep(5)
         
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))

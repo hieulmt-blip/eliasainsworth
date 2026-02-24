@@ -1440,15 +1440,13 @@ async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Lỗi trans: {e}")
         return ConversationHandler.END
 async def marketcap_history_loop():
-    print("📊 MarketCap History Scheduler started")
+    print("📊 MarketCap Time-Series Logger started")
 
     while True:
         try:
             sheet = get_sheet()
 
-            # ===============================
-            # 🔹 ĐỌC A1
-            # ===============================
+            # ===== READ A1 =====
             a1_raw = sheet.acell("A1").value
             if not a1_raw:
                 await asyncio.sleep(5)
@@ -1463,11 +1461,13 @@ async def marketcap_history_loop():
             minute = a1_time.minute
             second = a1_time.second
             hour = a1_time.hour
-            today_str = a1_time.strftime("%Y-%m-%d")
 
-            # ===============================
-            # 🔹 LẤY MARKET CAP W13
-            # ===============================
+            # ===== ONLY RUN AT 5-MIN MARKS =====
+            if not (minute % 5 == 0 and second == 0):
+                await asyncio.sleep(5)
+                continue
+
+            # ===== GET MARKET CAP =====
             raw_cap = sheet.acell("W13").value
             if not raw_cap:
                 await asyncio.sleep(5)
@@ -1475,58 +1475,37 @@ async def marketcap_history_loop():
 
             total_marketcap = parse_money(raw_cap)
 
-            rows = sheet.get("S17:U500")
+            # ===== CHECK LAST LOG TO AVOID DUP =====
+            last_time = sheet.acell("S500").value  # đọc dòng cuối
+            col_data = sheet.get("S17:S500")
 
-            today_row = None
-            last_filled = 16
+            last_row = 16
+            last_logged_time = None
 
-            for i, row in enumerate(rows):
+            for i, row in enumerate(col_data):
                 if row and row[0]:
-                    last_filled = 17 + i
-                    if row[0].startswith(today_str):
-                        today_row = 17 + i
+                    last_row = 17 + i
+                    last_logged_time = row[0]
 
-            if not today_row:
-                today_row = last_filled + 1
+            # Nếu đã log mốc này rồi → skip
+            if last_logged_time == a1_raw:
+                await asyncio.sleep(5)
+                continue
 
-            # ==================================================
-            # 🟢 INTRADAY LOGIC
-            # ==================================================
-            open_cell = sheet.acell(f"T{today_row}").value
+            new_row = last_row + 1
 
-            should_log_intraday = False
+            # ===== WRITE NEW ROW =====
+            sheet.update(f"S{new_row}", [[a1_raw]])
+            sheet.update(f"T{new_row}", [[total_marketcap]])
 
-            # Case 1: đúng mốc 5 phút
-            if minute % 5 == 0 and second == 0:
-                should_log_intraday = True
+            # ===== CLOSE AT 23:55 =====
+            if hour == 23 and minute == 55:
+                sheet.update(f"U{new_row}", [[total_marketcap]])
 
-            # Case 2: đã qua 00:05 mà T chưa có dữ liệu
-            if (
-                hour == 0
-                and minute > 5
-                and not open_cell
-            ):
-                should_log_intraday = True
-
-            if should_log_intraday:
-                last_time = sheet.acell(f"S{today_row}").value
-
-                if last_time != a1_raw:
-                    sheet.update(f"S{today_row}", [[a1_raw]])
-                    sheet.update(f"T{today_row}", [[total_marketcap]])
-                    print(f"🟢 Logged {a1_raw}")
-
-            # ==================================================
-            # 🔴 CLOSE 23:55:00
-            # ==================================================
-            if hour == 23 and minute == 55 and second == 0:
-                close_cell = sheet.acell(f"U{today_row}").value
-                if not close_cell:
-                    sheet.update(f"U{today_row}", [[total_marketcap]])
-                    print("🔴 Close logged")
+            print(f"🟢 Logged {a1_raw}")
 
         except Exception as e:
-            print("❌ MarketCap history error:", e)
+            print("❌ MarketCap log error:", e)
 
         await asyncio.sleep(5)
         

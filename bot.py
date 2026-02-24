@@ -1035,84 +1035,94 @@ async def scale(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(f"❌ SCALE lỗi:\n{e}")
-# ================= DAILY MARKET CAP RECORD =================
-
-# ================= DAILY MARKET CAP RECORD =================
-
-# ================= DAILY MARKET CAP RECORD =================
-
-async def record_daily_market_cap():
+async def sync_daily_from_history():
     try:
         sheet = get_sheet()
         tz = ZoneInfo("Asia/Ho_Chi_Minh")
         now = datetime.now(tz)
-
-        current_time = now.time()
         today_str = now.strftime("%Y-%m-%d")
 
-        raw = sheet.acell("U13").value
-        if not raw:
+        # ===== LẤY TIME SERIES =====
+        times = sheet.get("S17:S500")
+        caps = sheet.get("T17:T500")
+
+        history = []
+
+        for i in range(len(times)):
+            if times[i] and caps[i]:
+                try:
+                    dt = datetime.strptime(times[i][0], "%Y-%m-%d %H:%M:%S")
+                    cap = parse_money(caps[i][0])
+                    history.append((dt, cap))
+                except:
+                    continue
+
+        if not history:
             return
 
-        current_cap = parse_money(raw)
+        # ===== LỌC THEO NGÀY =====
+        today_data = [(dt, cap) for dt, cap in history if dt.strftime("%Y-%m-%d") == today_str]
 
-        # ===============================
-        # 🔹 1️⃣ GHI MARKET CAP DAY (G + H)
-        # 00:00:01 → 18:00:00
-        # LẦN ĐẦU TIÊN TRONG NGÀY
-        # ===============================
-        if (
-            current_time.hour < 18 and
-            (current_time.hour > 0 or current_time.minute > 0)
-        ):
-            existing_dates = sheet.get("H17:H500")
+        if not today_data:
+            return
 
-            already_recorded = False
-            for row in existing_dates:
-                if row and today_str in row[0]:
-                    already_recorded = True
-                    break
+        # ============================
+        # 🔹 1️⃣ DAY = gần 00:05 nhưng >= 00:05
+        # ============================
+        candidates = [
+            (dt, cap) for dt, cap in today_data
+            if dt.time() >= datetime.strptime("00:05:00", "%H:%M:%S").time()
+        ]
 
-            if not already_recorded:
-                col_data = sheet.get("G17:G500")
-                last_row = 16
+        if candidates:
+            day_dt, day_cap = min(
+                candidates,
+                key=lambda x: abs(
+                    (x[0] - x[0].replace(hour=0, minute=5, second=0)).total_seconds()
+                )
+            )
+        else:
+            day_dt, day_cap = None, None
 
-                for i, row in enumerate(col_data):
-                    if row and row[0]:
-                        last_row = 17 + i
+        # ============================
+        # 🔹 2️⃣ CLOSE gần 23:55
+        # ============================
+        close_dt, close_cap = min(
+            today_data,
+            key=lambda x: abs(
+                (x[0] - x[0].replace(hour=23, minute=55, second=0)).total_seconds()
+            )
+        )
 
-                next_row = last_row + 1
+        # ============================
+        # 🔹 GHI VÀO HISTORY MARKET CAP DAYS
+        # ============================
+        existing_dates = sheet.get("H17:H500")
 
-                sheet.update(f"G{next_row}", [[current_cap]])
-                sheet.update(f"H{next_row}", [[today_str]])
+        target_row = None
+        for i, row in enumerate(existing_dates):
+            if row and today_str in row[0]:
+                target_row = 17 + i
+                break
 
-                print(f"✅ DAY recorded at G{next_row}")
+        if not target_row:
+            # tìm dòng cuối
+            last_row = 16
+            for i, row in enumerate(existing_dates):
+                if row and row[0]:
+                    last_row = 17 + i
+            target_row = last_row + 1
+            sheet.update(f"H{target_row}", [[today_str]])
 
-        # ===============================
-        # 🔹 2️⃣ GHI MARKET CAP CLOSE (I)
-        # 23:00:00 → 23:59:59
-        # GHI 1 LẦN DUY NHẤT
-        # ===============================
-        if current_time.hour == 23:
+        if day_cap:
+            sheet.update(f"G{target_row}", [[day_cap]])
 
-            col_data = sheet.get("H17:H500")
-            target_row = None
+        sheet.update(f"I{target_row}", [[close_cap]])
 
-            for i, row in enumerate(col_data):
-                if row and today_str in row[0]:
-                    target_row = 17 + i
-                    break
-
-            if target_row:
-                close_cell = sheet.acell(f"I{target_row}").value
-
-                if not close_cell:
-                    sheet.update(f"I{target_row}", [[current_cap]])
-                    print(f"🌙 CLOSE recorded at I{target_row}")
+        print("✅ DAILY SYNC DONE")
 
     except Exception as e:
-        print("❌ record error:", e)
-
+        print("❌ DAILY SYNC ERROR:", e)
 async def scheduler_loop():
     tz = ZoneInfo("Asia/Ho_Chi_Minh")
     print("🚀 BDINX Scheduler started")
@@ -1355,6 +1365,7 @@ async def marketcap_history_loop():
                 sheet.update(f"U{new_row}", [[total_marketcap]])
 
             last_logged_time = dt_str
+            await asyncio.to_thread(sync_daily_from_history)
 
             print(f"🟢 Logged {dt_str}")
 

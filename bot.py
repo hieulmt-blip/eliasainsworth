@@ -1439,7 +1439,61 @@ async def receive_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Lỗi trans: {e}")
         return ConversationHandler.END
-    
+async def marketcap_history_loop():
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    print("📊 MarketCap History Scheduler started")
+
+    while True:
+        try:
+            sheet = get_sheet()
+            now = datetime.now(tz)
+
+            # ===== đọc market cap hiện tại từ U13
+            raw = sheet.acell("U13").value
+            if not raw:
+                await asyncio.sleep(300)
+                continue
+
+            total_marketcap = parse_money(raw)
+
+            today_str = now.strftime("%Y-%m-%d")
+            time_str = sheet.acell("A1").value or now.strftime("%Y-%m-%d %H:%M:%S")
+
+            rows = sheet.get("S17:U500")
+
+            today_row = None
+            last_filled = 16
+
+            for i, row in enumerate(rows):
+                if row and row[0]:
+                    last_filled = 17 + i
+                    if today_str in row[0]:
+                        today_row = 17 + i
+
+            # ===== nếu chưa có dòng hôm nay → tạo mới
+            if not today_row:
+                today_row = last_filled + 1
+                sheet.update(f"S{today_row}", [[time_str]])
+
+            # ===== MARKET OPEN (00:05)
+            if now.hour == 0 and now.minute == 5:
+                open_cell = sheet.acell(f"T{today_row}").value
+                if not open_cell:
+                    sheet.update(f"T{today_row}", [[total_marketcap]])
+                    print("🟢 Open logged")
+
+            # ===== MARKET CLOSE (23:55)
+            if now.hour == 23 and now.minute == 55:
+                close_cell = sheet.acell(f"U{today_row}").value
+                if not close_cell:
+                    sheet.update(f"U{today_row}", [[total_marketcap]])
+                    print("🔴 Close logged")
+
+        except Exception as e:
+            print("❌ MarketCap history error:", e)
+
+        await asyncio.sleep(300)  # 5 phút
+        
 tg_app.add_handler(CommandHandler("C20", c20))
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
@@ -1488,6 +1542,8 @@ async def startup():
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     asyncio.create_task(scheduler_loop())
+    asyncio.create_task(scheduler_loop())           # BDINX
+    asyncio.create_task(marketcap_history_loop())  # 🔥 thêm dòng này
     print("✅ Webhook set & bot ready")
 
 @fastapi_app.post("/webhook")

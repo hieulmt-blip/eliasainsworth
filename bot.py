@@ -1215,153 +1215,7 @@ def write_market_cap_if_needed(sheet, total_marketcap):
 
     sheet.update(f"G{next_row}", [[total_marketcap]])
     sheet.update(f"H{next_row}", [[now.strftime("%Y-%m-%d 12:00")]])
-# ================== BDINX LOGIC ==================
 
-def calculate_bdinx():
-    sheet = get_sheet()
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    today_str = datetime.now(tz).strftime("%Y-%m-%d")
-
-    rows = sheet.get("K17:Q500")
-
-    today_row_number = None
-    prev_row_number = None
-
-    # ===== TÌM DÒNG HÔM NAY =====
-    for i, row in enumerate(rows):
-        if row and row[0] == today_str:
-            today_row_number = 17 + i
-            break
-
-    if not today_row_number:
-        raise Exception("Không tìm thấy dòng hôm nay")
-
-    # ===== UPDATE NAV (CỘT L) =====
-    nav_today = get_total_nav_index()
-    sheet.update(f"L{today_row_number}", [[nav_today]])
-
-    # ===== TÌM DÒNG TRƯỚC =====
-    for i in reversed(range(len(rows))):
-        row = rows[i]
-        if not row or not row[0]:
-            continue
-
-        if row[0] < today_str:
-            prev_row_number = 17 + i
-            break
-
-    # ===== BASE CASE =====
-    if not prev_row_number:
-        sheet.update(f"Q{today_row_number}", [[1000]])
-        return 1000
-
-    prev_index_cell = sheet.acell(f"Q{prev_row_number}").value
-    prev_index = float(prev_index_cell) if prev_index_cell else 1000
-
-    # ===== ĐỢI SHEET TÍNH DAILY RETURN =====
-    daily_return_cell = sheet.acell(f"N{today_row_number}").value
-    if not daily_return_cell:
-        raise Exception("Daily Return chưa được sheet tính")
-
-    daily_return = float(daily_return_cell)
-
-    today_index = prev_index * (1 + daily_return)
-
-    # ===== UPDATE Q =====
-    sheet.update(f"Q{today_row_number}", [[round(today_index, 4)]])
-
-    return round(today_index, 4)
-    
-async def bdinx(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        await update.message.reply_text("⏳ Đang tính BDINX...")
-
-        value = await asyncio.to_thread(calculate_bdinx)
-
-        await update.message.reply_text(
-            f"🐉 BLACK DRAGON INDEX\n\n"
-            f"BDINX: {value:.4f}"
-        )
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi BDINX:\n{e}")
-def get_total_nav_index():
-    combined = {}
-
-    # ===== SPOT =====
-    spot = exchange_index.fetch_balance({"type": "spot"})
-    for coin, amount in spot["total"].items():
-        if amount and amount > 0:
-            combined[coin] = combined.get(coin, 0) + amount
-
-    # ===== FUNDING =====
-    funding = exchange_index.fetch_balance({"type": "funding"})
-    for coin, amount in funding["total"].items():
-        if amount and amount > 0:
-            combined[coin] = combined.get(coin, 0) + amount
-
-    # ===== EARN =====
-    try:
-        earn = exchange_index.private_get_finance_savings_balance()
-        for item in earn.get("data", []):
-            coin = item.get("ccy")
-            amt = float(item.get("amt", 0))
-            if amt > 0:
-                combined[coin] = combined.get(coin, 0) + amt
-    except:
-        pass
-
-    # ===== QUY ĐỔI USDT =====
-    total = 0
-
-    for coin, amount in combined.items():
-        try:
-            if coin == "USDT":
-                price = 1
-            else:
-                ticker = exchange_index.public_get_market_ticker({
-                    "instId": f"{coin}-USDT"
-                })
-                price = float(ticker["data"][0]["last"])
-
-            total += amount * price
-        except:
-            continue
-
-    return round(total, 4)
-def update_today_nav_index():
-    sheet = get_sheet()
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    today_str = datetime.now(tz).strftime("%Y-%m-%d")
-
-    rows = sheet.get("K17:K500")
-
-    today_row = None
-    last_filled = 16
-
-    for i, row in enumerate(rows):
-        if row and row[0]:
-            last_filled = 17 + i
-            if row[0] == today_str:
-                today_row = 17 + i
-
-    nav = get_total_nav_index()
-
-    # ===== Nếu đã có dòng hôm nay → chỉ update L =====
-    if today_row:
-        sheet.update(f"L{today_row}", [[nav]])
-        return nav, today_row
-
-    # ===== Nếu chưa có → tạo dòng mới =====
-    new_row = last_filled + 1
-    sheet.update(f"K{new_row}", [[today_str]])
-    sheet.update(f"L{new_row}", [[nav]])
-
-    # ❌ KHÔNG ĐỤNG O P
-    # ❌ KHÔNG ĐỤNG M
-    # Sheet tự có formula thì nó tự tính
-
-    return nav, new_row
 async def trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Nhập giao dịch:\n"
@@ -1525,7 +1379,6 @@ tg_app.add_handler(CommandHandler("sell", sell))
 tg_app.add_handler(CommandHandler("c20inx", c20inx))
 tg_app.add_handler(CommandHandler("scale", scale))
 tg_app.add_handler(CommandHandler("capital", capital))
-tg_app.add_handler(CommandHandler("bdinx", bdinx))
 
 conv_handler = ConversationHandler(
     entry_points=[
@@ -1556,7 +1409,6 @@ async def startup():
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    asyncio.create_task(scheduler_loop())           # BDINX
     asyncio.create_task(marketcap_history_loop())  # 🔥 thêm dòng này
     print("✅ Webhook set & bot ready")
 

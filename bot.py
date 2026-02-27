@@ -569,7 +569,17 @@ def get_market_caps(symbols):
     }
 
     res = requests.get(url, headers=headers, params=params)
-    data = res.json()["data"]
+
+    print("CMC STATUS:", res.status_code)
+    print("CMC RESPONSE:", res.text)
+
+    result = res.json()
+
+    if "data" not in result:
+        print("❌ CMC ERROR:", result)
+        return {s: 0 for s in symbols}
+
+    data = result["data"]
 
     market_caps = {}
 

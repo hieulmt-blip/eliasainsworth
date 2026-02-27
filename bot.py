@@ -596,59 +596,22 @@ async def sheet_scheduler():
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         minute = now.minute
 
-        # Nếu đúng mốc 5 phút
         if minute % 5 == 0:
             await update_sheet_row7()
-
-            # Tránh chạy lặp trong cùng 1 phút
             await asyncio.sleep(60)
 
         await asyncio.sleep(5)
+        
 async def update_sheet_row7():
     try:
         sheet = get_sheet()
 
-        # ===== ĐỌC HÀNG 6 =====
-        row6 = sheet.get("A6:V6")[0]   # nếu USDC ở V
-
-        # Giữ đúng vị trí cột
-        symbols = [s.strip().upper() if s.strip() != "" else "" for s in row6]
-
-        valid_symbols = [s for s in symbols if s != ""]
-
-        if not valid_symbols:
-            print("❌ Không có symbol")
-            return
-
-        # ===== LẤY MARKET CAP =====
-        market_caps = get_market_caps(valid_symbols)
-
-        total_mc = sum(market_caps.values())
-
-        if total_mc == 0:
-            print("❌ Total market cap = 0")
-            return
-
-        # ===== TÍNH WEIGHT THEO ĐÚNG CỘT =====
-        weights = []
-        for sym in symbols:
-            if sym == "":
-                weights.append("")
-            else:
-                mc = market_caps.get(sym, 0)
-                weight = mc / total_mc
-                weights.append(weight)
-
-        # ===== GHI HÀNG 7 =====
-        sheet.update("A7:V7", [weights])
-
-        # ===== GHI TIMESTAMP =====
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         formatted_time = now.strftime("%d/%m/%y %H/%M/%S")
 
-        sheet.update("AB1", formatted_time)
+        sheet.update("A1", formatted_time)
 
-        print("✅ MCW Updated:", formatted_time)
+        print("✅ A1 Updated:", formatted_time)
 
     except Exception as e:
         print("❌ Sheet update lỗi:", e)

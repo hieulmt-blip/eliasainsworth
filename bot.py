@@ -97,7 +97,7 @@ exchange_trade = ccxt.okx({
     "enableRateLimit": True,
     "options": {"defaultType": "spot"}
 })
-
+CMC_API_KEY = os.getenv("CMC_API_KEY")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import json
@@ -556,27 +556,31 @@ def get_sheet():
 
     client = gspread.authorize(creds)
     return client.open_by_key(sheet_id).sheet1
-async def update_sheet_row7():
-    try:
-        sheet = get_sheet()
+def get_market_caps(symbols):
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 
-        # Giờ Việt Nam
-        now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+    headers = {
+        "X-CMC_PRO_API_KEY": CMC_API_KEY
+    }
 
-        # Format: DD/MM/YY HH/MM/SS
-        formatted_time = now.strftime("%d/%m/%y %H/%M/%S")
+    params = {
+        "symbol": ",".join(symbols),
+        "convert": "USD"
+    }
 
-        # ===== GHI HÀNG 7 =====
-        # Nếu m muốn ghi nhiều cột thì thay range ở đây
-        sheet.update("A7", [[formatted_time]])
+    res = requests.get(url, headers=headers, params=params)
+    data = res.json()["data"]
 
-        # ===== GHI TIMESTAMP AB1 =====
-        sheet.update("AB1", formatted_time)
+    market_caps = {}
 
-        print("✅ Sheet updated:", formatted_time)
+    for sym in symbols:
+        try:
+            market_caps[sym] = data[sym]["quote"]["USD"]["market_cap"]
+        except:
+            market_caps[sym] = 0
 
-    except Exception as e:
-        print("❌ Sheet update lỗi:", e)
+    return market_caps
+    
 async def sheet_scheduler():
     while True:
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
@@ -590,7 +594,54 @@ async def sheet_scheduler():
             await asyncio.sleep(60)
 
         await asyncio.sleep(5)
+async def update_sheet_row7():
+    try:
+        sheet = get_sheet()
 
+        # ===== ĐỌC HÀNG 6 =====
+        row6 = sheet.get("A6:V6")[0]   # nếu USDC ở V
+
+        # Giữ đúng vị trí cột
+        symbols = [s.strip().upper() if s.strip() != "" else "" for s in row6]
+
+        valid_symbols = [s for s in symbols if s != ""]
+
+        if not valid_symbols:
+            print("❌ Không có symbol")
+            return
+
+        # ===== LẤY MARKET CAP =====
+        market_caps = get_market_caps(valid_symbols)
+
+        total_mc = sum(market_caps.values())
+
+        if total_mc == 0:
+            print("❌ Total market cap = 0")
+            return
+
+        # ===== TÍNH WEIGHT THEO ĐÚNG CỘT =====
+        weights = []
+        for sym in symbols:
+            if sym == "":
+                weights.append("")
+            else:
+                mc = market_caps.get(sym, 0)
+                weight = mc / total_mc
+                weights.append(weight)
+
+        # ===== GHI HÀNG 7 =====
+        sheet.update("A7:V7", [weights])
+
+        # ===== GHI TIMESTAMP =====
+        now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+        formatted_time = now.strftime("%d/%m/%y %H/%M/%S")
+
+        sheet.update("AB1", formatted_time)
+
+        print("✅ MCW Updated:", formatted_time)
+
+    except Exception as e:
+        print("❌ Sheet update lỗi:", e)
 
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))

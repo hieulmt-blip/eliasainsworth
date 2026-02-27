@@ -598,7 +598,7 @@ async def sheet_scheduler():
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         minute = now.minute
 
-        if minute % 5 == 0 and minute != last_run_minute:
+       if minute in [0, 5, 10, 15, 20] and minute != last_run_minute:
             await update_sheet_row7()
             last_run_minute = minute
 

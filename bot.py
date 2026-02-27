@@ -611,7 +611,7 @@ async def update_sheet_row7():
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         formatted_time = now.strftime("%d/%m/%y %H/%M/%S")
 
-        sheet.update("A1", formatted_time)
+        sheet.update("A1", [[formatted_time]])
 
         print("✅ A1 Updated:", formatted_time)
 

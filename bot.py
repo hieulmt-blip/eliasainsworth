@@ -642,6 +642,7 @@ async def startup():
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     asyncio.create_task(sheet_scheduler())
+    await update_sheet_row7()
     print("✅ Webhook set & bot ready")
 
 @fastapi_app.post("/webhook")

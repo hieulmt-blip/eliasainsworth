@@ -592,15 +592,17 @@ def get_market_caps(symbols):
     return market_caps
     
 async def sheet_scheduler():
+    last_run_minute = None
+
     while True:
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         minute = now.minute
 
-        if minute % 5 == 0:
+        if minute % 5 == 0 and minute != last_run_minute:
             await update_sheet_row7()
-            await asyncio.sleep(60)
+            last_run_minute = minute
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
         
 async def update_sheet_row7():
     try:

@@ -556,7 +556,42 @@ def get_sheet():
 
     client = gspread.authorize(creds)
     return client.open_by_key(sheet_id).sheet1
-    
+async def update_sheet_row7():
+    try:
+        sheet = get_sheet()
+
+        # Giờ Việt Nam
+        now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+
+        # Format: DD/MM/YY HH/MM/SS
+        formatted_time = now.strftime("%d/%m/%y %H/%M/%S")
+
+        # ===== GHI HÀNG 7 =====
+        # Nếu m muốn ghi nhiều cột thì thay range ở đây
+        sheet.update("A7", [[formatted_time]])
+
+        # ===== GHI TIMESTAMP AB1 =====
+        sheet.update("AB1", formatted_time)
+
+        print("✅ Sheet updated:", formatted_time)
+
+    except Exception as e:
+        print("❌ Sheet update lỗi:", e)
+async def sheet_scheduler():
+    while True:
+        now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+        minute = now.minute
+
+        # Nếu đúng mốc 5 phút
+        if minute % 5 == 0:
+            await update_sheet_row7()
+
+            # Tránh chạy lặp trong cùng 1 phút
+            await asyncio.sleep(60)
+
+        await asyncio.sleep(5)
+
+
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("balance", balance))
@@ -580,6 +615,7 @@ async def startup():
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    asyncio.create_task(sheet_scheduler())
     print("✅ Webhook set & bot ready")
 
 @fastapi_app.post("/webhook")

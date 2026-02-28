@@ -592,17 +592,20 @@ def get_market_caps(symbols):
     return market_caps
     
 async def sheet_scheduler():
-    last_run_minute = None
+    last_run = None
 
     while True:
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
-        minute = now.minute
 
-        if minute in [0, 5, 10, 15, 20] and minute != last_run_minute:
-            await update_sheet_row7()
-            last_run_minute = minute
+        # Nếu đang đúng mốc phút 5,10,15...
+        if now.minute % 5 == 0 and now.second < 5:
+            current_slot = now.strftime("%Y-%m-%d %H:%M")
 
-        await asyncio.sleep(10)
+            if current_slot != last_run:
+                await update_sheet_row7()
+                last_run = current_slot
+
+        await asyncio.sleep(1)
         
 async def update_sheet_row7():
     try:
@@ -611,13 +614,52 @@ async def update_sheet_row7():
         now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         formatted_time = now.strftime("%d/%m/%y %H:%M:%S")
 
+        # ✅ Update time
         sheet.update("A1", [[formatted_time]])
 
-        print("✅ A1 Updated:", formatted_time)
+        # ===== ĐỌC HÀNG 6 =====
+        row6 = sheet.row_values(6)
+
+        # Bỏ cột A (vì coin bắt đầu từ B6)
+        symbols = [c.strip().upper() for c in row6[1:] if c.strip()]
+
+        if not symbols:
+            print("❌ Không có coin ở hàng 6")
+            return
+
+        print("📡 Symbols đọc từ sheet:", symbols)
+
+        # ===== FIX TON → TONCOIN cho CMC =====
+        cmc_symbols = [
+            "TONCOIN" if s == "TON" else s
+            for s in symbols
+        ]
+
+        # ===== LẤY MARKET CAP =====
+        market_caps = get_market_caps(cmc_symbols)
+
+        # ===== Map lại đúng tên sheet =====
+        final_values = []
+
+        for s in symbols:
+            key = "TONCOIN" if s == "TON" else s
+            mc = market_caps.get(key, 0)
+            final_values.append(mc)
+
+        # ===== GHI HÀNG 7 =====
+        start_col = 2  # B = 2
+        end_col = start_col + len(final_values) - 1
+
+        sheet.update(
+            f"{gspread.utils.rowcol_to_a1(7, start_col)}:"
+            f"{gspread.utils.rowcol_to_a1(7, end_col)}",
+            [final_values]
+        )
+
+        print("✅ Market Cap updated")
 
     except Exception as e:
         print("❌ Sheet update lỗi:", e)
-
 tg_app.add_handler(CommandHandler("start", start))
 tg_app.add_handler(CommandHandler("price", price))
 tg_app.add_handler(CommandHandler("balance", balance))
